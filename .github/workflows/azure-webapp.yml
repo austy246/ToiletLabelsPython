@@ -14,9 +14,9 @@ jobs:
     name: Deploy to Azure
     runs-on: ubuntu-latest
 
-    permissions:
-      id-token: write # Required for OIDC login
-      contents: read  # Explicitly request read access to repo contents
+    # permissions:
+    #   id-token: write # Required for OIDC login
+    #   contents: read  # Explicitly request read access to repo contents
     
     steps:
       - uses: actions/checkout@v4
