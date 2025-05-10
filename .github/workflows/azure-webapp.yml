@@ -50,3 +50,4 @@ jobs:
 # Setup instructions:
 # 1. Create an Azure Service Principal for GitHub Actions with Contributor role on your Web App resource scope.
 # 2. Add the following GitHub repository secrets:
+#    AZURE_CREDENTIALS: <Service Principal JSON>
