@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -20,12 +21,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-trh2@l)5z5+z)^dhp)meaa*ceo8sf7(0ud$0@tvfdy)cgfm#zn'
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-trh2@l)5z5+z)^dhp)meaa*ceo8sf7(0ud$0@tvfdy)cgfm#zn')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get('DJANGO_DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = ['toiletlabels.azurewebsites.net']
+ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', 'toiletlabels.azurewebsites.net,localhost,127.0.0.1').split(',')
 
 
 # Application definition
@@ -44,6 +45,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # Add whitenoise for static files
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -102,9 +104,6 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 
-# Static files (CSS, JavaScript, Images)
-STATIC_ROOT = BASE_DIR / "staticfiles"
-
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
@@ -121,11 +120,21 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
-# Azure Blob Storage configuration (replace with your real values)
-AZURE_ACCOUNT_NAME = 'your_account_name'
-AZURE_ACCOUNT_KEY = 'your_account_key'
-AZURE_CONTAINER = 'your_container_name'
+# Enable whitenoise compression and caching
+STORAGES = {
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
+
+# Azure Blob Storage configuration - use environment variables
+AZURE_ACCOUNT_NAME = os.environ.get('AZURE_ACCOUNT_NAME', '')
+AZURE_ACCOUNT_KEY = os.environ.get('AZURE_ACCOUNT_KEY', '')
+AZURE_CONTAINER = os.environ.get('AZURE_CONTAINER', 'toiletlabels')
+AZURE_TABLE_NAME = os.environ.get('AZURE_TABLE_NAME', 'toiletlabels')
+AZURE_STORAGE_CONNECTION_STRING = os.environ.get('AZURE_STORAGE_CONNECTION_STRING', '')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
