@@ -49,4 +49,3 @@ jobs:
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
           slot-name: 'Production'
-          startup-command: 'startup.sh'
