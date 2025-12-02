@@ -20,21 +20,24 @@ jobs:
     
     steps:
       - uses: actions/checkout@v4
-  
-      # - uses: actions/setup-python@v5
-      #   with:
-      #     python-version: '3.11' 
-  
-      # - name: Set up virtual environment
-      #   run: python -m venv antenv
-        
-      # - name: Activate virtual environment
-      #   run: source antenv/bin/activate
 
-      # - run: python -m pip install --upgrade pip
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
-      # - run: pip install -r requirements.txt
-  
+      - name: Upgrade pip
+        run: python -m pip install --upgrade pip
+
+      - name: Create venv at repo root
+        run: python -m venv antenv
+
+      - name: Install requirements into venv
+        run: antenv/bin/pip install -r requirements.txt
+
+      - name: Collect static files
+        run: |
+          antenv/bin/python manage.py collectstatic --noinput
+
       - name: Log in to Azure
         uses: azure/login@v1
         with:
@@ -46,8 +49,3 @@ jobs:
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
           slot-name: 'Production'
-
-# Setup instructions:
-# 1. Create an Azure Service Principal for GitHub Actions with Contributor role on your Web App resource scope.
-# 2. Add the following GitHub repository secrets:
-#    AZURE_CREDENTIALS: <Service Principal JSON>
