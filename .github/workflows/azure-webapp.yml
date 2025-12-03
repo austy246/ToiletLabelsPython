@@ -14,29 +14,8 @@ jobs:
     name: Deploy to Azure
     runs-on: ubuntu-latest
 
-    # permissions:
-    #   id-token: write # Required for OIDC login
-    #   contents: read  # Explicitly request read access to repo contents
-    
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Upgrade pip
-        run: python -m pip install --upgrade pip
-
-      - name: Create venv at repo root
-        run: python -m venv antenv
-
-      - name: Install requirements into venv
-        run: antenv/bin/pip install -r requirements.txt
-
-      - name: Collect static files
-        run: |
-          antenv/bin/python manage.py collectstatic --noinput
 
       - name: Log in to Azure
         uses: azure/login@v1
@@ -44,8 +23,13 @@ jobs:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Deploy to Azure Web App
-        id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
           slot-name: 'Production'
+
+      - name: Configure Azure to build on server
+        uses: azure/appservice-settings@v1
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          app-settings-json: '[{"name":"SCM_DO_BUILD_DURING_DEPLOYMENT","value":"true"},{"name":"ENABLE_ORYX_BUILD","value":"true"}]'
