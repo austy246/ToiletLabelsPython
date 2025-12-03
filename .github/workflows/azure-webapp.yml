@@ -8,6 +8,7 @@ on:
 
 env:
   AZURE_WEBAPP_NAME: toiletlabels
+  RESOURCE_GROUP: ToiletLabels
 
 jobs:
   deploy:
@@ -22,14 +23,14 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Deploy to Azure Web App
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: ${{ env.AZURE_WEBAPP_NAME }}
-          slot-name: 'Production'
-
       - name: Configure Azure to build on server
-        uses: azure/appservice-settings@v1
-        with:
-          app-name: ${{ env.AZURE_WEBAPP_NAME }}
-          app-settings-json: '[{"name":"SCM_DO_BUILD_DURING_DEPLOYMENT","value":"true"},{"name":"ENABLE_ORYX_BUILD","value":"true"}]'
+        run: |
+          az webapp config appsettings set --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.RESOURCE_GROUP }} --settings SCM_DO_BUILD_DURING_DEPLOYMENT=true ENABLE_ORYX_BUILD=true
+
+      - name: Create deployment package
+        run: |
+          zip -r deploy.zip . -x ".git/*" -x ".github/*" -x "*.pyc" -x "__pycache__/*" -x "venv/*" -x ".venv/*" -x "antenv/*"
+
+      - name: Deploy to Azure Web App
+        run: |
+          az webapp deployment source config-zip --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.RESOURCE_GROUP }} --src deploy.zip
