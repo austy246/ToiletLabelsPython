@@ -33,4 +33,4 @@ jobs:
 
       - name: Deploy to Azure Web App
         run: |
-          az webapp deployment source config-zip --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.RESOURCE_GROUP }} --src deploy.zip
+          az webapp deploy --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.RESOURCE_GROUP }} --src-path deploy.zip --type zip
