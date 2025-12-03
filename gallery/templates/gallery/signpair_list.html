@@ -3,174 +3,263 @@
 <style>
   .card {
     background: #fff;
-    border-radius: 1.5rem;
-    box-shadow: 0 2px 16px rgba(0,0,0,0.08);
-    padding: 1.5rem;
-    border: 1px solid #f3f4f6;
+    border-radius: 1rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+    overflow: hidden;
+    transition: all 0.3s ease;
+  }
+  .card:hover {
+    box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+    transform: translateY(-2px);
+  }
+  .sign-wrapper {
+    border-radius: 0.75rem;
+    overflow: hidden;
+  }
+  .sign-wrapper-men {
+    border: 3px solid #3b82f6;
+  }
+  .sign-wrapper-women {
+    border: 3px solid #ec4899;
+  }
+  .sign-container {
+    aspect-ratio: 1;
+    background: #fff;
+    min-height: 140px;
+  }
+  @media (min-width: 640px) {
+    .sign-container {
+      min-height: 180px;
+    }
+  }
+  .sign-img {
     width: 100%;
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-  }
-  @media (min-width: 768px) {
-    .card {
-      flex-direction: row;
-      padding: 2.5rem;
-      gap: 2.5rem;
-    }
-  }
-  .avatar {
-    width: 5rem;
-    height: 5rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: #e5e7eb;
-    border-radius: 9999px;
-    border: 4px solid #d1d5db;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-    margin-bottom: 0.25rem;
-  }
-  .sign-img-men {
-    width: 8rem;
-    height: 8rem;
+    height: 100%;
     object-fit: contain;
-    border-radius: 1rem;
-    border: 4px solid #60a5fa;
-    box-shadow: 0 1px 8px rgba(0,0,0,0.10);
+    transition: transform 0.3s ease;
+    background: #fff;
   }
-  .sign-img-women {
-    width: 8rem;
-    height: 8rem;
-    object-fit: contain;
-    border-radius: 1rem;
-    border: 4px solid #f472b6;
-    box-shadow: 0 1px 8px rgba(0,0,0,0.10);
+  .card:hover .sign-img {
+    transform: scale(1.02);
   }
-  @media (min-width: 768px) {
-    .sign-img-men, .sign-img-women {
-      width: 12rem;
-      height: 12rem;
-    }
+  .sign-label {
+    display: block;
+    padding: 0.4rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-align: center;
   }
-  .main-btn {
+  .sign-men-label {
+    background: #3b82f6;
+    color: white;
+  }
+  .sign-women-label {
+    background: #ec4899;
+    color: white;
+  }
+  .location-badge {
     display: inline-flex;
     align-items: center;
-    padding: 0.5rem 1rem;
+    gap: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    background: #f1f5f9;
     border-radius: 9999px;
-    box-shadow: 0 1px 8px rgba(0,0,0,0.10);
-    font-weight: bold;
-    transition: background 0.2s;
-    border: none;
-    cursor: pointer;
-    font-size: 1rem;
+    font-size: 0.7rem;
+    color: #475569;
   }
-  .btn-blue {
-    background: #2563eb;
-    color: #fff;
-  }
-  .btn-blue:hover {
-    background: #1d4ed8;
-  }
-  .btn-red {
-    background: #dc2626;
-    color: #fff;
-  }
-  .btn-red:hover {
-    background: #b91c1c;
+  .meta-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.6rem;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.375rem;
+    font-size: 0.7rem;
+    color: #64748b;
   }
 </style>
-<div class="sticky top-0 z-10 bg-gray-50 py-4 mb-4 shadow-sm flex items-center justify-center relative">
-  <h1 class="text-3xl font-extrabold text-gray-800 text-center tracking-tight w-full">Toilet Sign Pairs</h1>
-  {% if user.is_authenticated %}
-    <div class="absolute right-8 top-1/2 -translate-y-1/2 flex flex-row-reverse items-center gap-3">
-      <span class="inline-flex items-center justify-center w-10 h-10 bg-gray-200 rounded-full">
-        <svg class="w-6 h-6 text-gray-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12 12c2.7 0 5-2.3 5-5s-2.3-5-5-5-5 2.3-5 5 2.3 5 5 5zm0 2c-3.3 0-10 1.7-10 5v3h20v-3c0-3.3-6.7-5-10-5z"/></svg>
-      </span>
-      {% if user.is_superuser %}
-        <form method="post" action="/logout/" style="display:inline;">{% csrf_token %}
-          <button type="submit" class="main-btn btn-red">Logout</button>
-        </form>
-      {% endif %}
-    </div>
-  {% else %}
-    <div class="absolute right-8 top-1/2 -translate-y-1/2 flex items-center gap-3">
-      <a href="/login/" class="main-btn btn-blue">Login</a>
-    </div>
-  {% endif %}
-</div>
-{% if pairs %}
-<div class="flex flex-col gap-8 md:gap-10 px-2 md:px-8 lg:px-32">
-    {% for pair in pairs %}
-     <div class="card">
-        <!-- Images column -->
-        <div class="flex flex-col md:flex-row md:flex-[2] min-w-0 w-full items-center md:items-start md:justify-center gap-4">
-          <div class="flex flex-col items-center">
-            {% if pair.MenImageUrl %}
-              <img src="{{ AZURE_BLOB_BASE_URL }}{{ pair.MenImageUrl }}" alt="Men's sign" class="sign-img-men">
-            {% else %}
-              <span class="avatar">
-                <svg class="w-10 h-10 text-gray-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 12c2.7 0 5-2.3 5-5s-2.3-5-5-5-5 2.3-5 5 2.3 5 5 5zm0 2c-3.3 0-10 1.7-10 5v3h20v-3c0-3.3-6.7-5-10-5z"/></svg>
-              </span>
-            {% endif %}
-            <p class="text-center mt-1 text-gray-600 font-semibold text-xs">Men's Sign</p>
-          </div>
-          <div class="flex flex-col items-center">
-            {% if pair.WomenImageUrl %}
-              <img src="{{ AZURE_BLOB_BASE_URL }}{{ pair.WomenImageUrl }}" alt="Women's sign" class="sign-img-women">
-            {% else %}
-              <span class="avatar">
-                <svg class="w-10 h-10 text-gray-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 12c2.7 0 5-2.3 5-5s-2.3-5-5-5-5 2.3-5 5 2.3 5 5 5zm0 2c-3.3 0-10 1.7-10 5v3h20v-3c0-3.3-6.7-5-10-5z"/></svg>
-              </span>
-            {% endif %}
-            <p class="text-center mt-1 text-gray-600 font-semibold text-xs">Women's Sign</p>
-          </div>
+
+<!-- Header -->
+<header class="sticky top-0 z-20 bg-white/80 backdrop-blur-lg border-b border-slate-200/50">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="flex items-center justify-between h-16">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-pink-500 rounded-xl flex items-center justify-center">
+          <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+          </svg>
         </div>
-        <!-- Info column -->
-        <div class="flex flex-col justify-center md:flex-[3] min-w-0 w-full items-center md:items-start mt-6 md:mt-0">
-          <h2 class="text-lg font-bold text-gray-800">{{ pair.Place }}</h2>
-        <p class="mb-1 text-gray-700 text-sm">{{ pair.Description }}</p>
-        {% if pair.Restaurant %}
-        <p class="mb-1 text-gray-700 text-xs"><span class="font-semibold">Restaurant:</span> {{ pair.Restaurant }}</p>
-        {% endif %}
-        {% if pair.Country %}
-        <p class="mb-1 text-gray-700 text-xs"><span class="font-semibold">Country:</span> {{ pair.Country }}</p>
-        {% endif %}
-        {% if pair.City %}
-        <p class="mb-1 text-gray-700 text-xs"><span class="font-semibold">City:</span> {{ pair.City }}</p>
-        {% endif %}
-        {% if request.user.is_superuser %}
-        <a href="{% url 'gallery:edit_label' pair.RowKey %}" class="inline-block mt-2 bg-yellow-500 hover:bg-yellow-600 text-white text-xs font-bold py-1 px-3 rounded">Edit</a>
-        {% endif %}
-        {% if pair.Latitude and pair.Longitude %}
-        <div class="flex items-center text-gray-500 text-xs mb-1">
-          <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17.657 16.657L13.414 12.414a4 4 0 1 0-1.414 1.414l4.243 4.243a1 1 0 0 0 1.414-1.414z"/></svg>
-          Coordinates: {{ pair.Latitude }}, {{ pair.Longitude }}
-        </div>
-        {% endif %}
-        <div class="flex items-center space-x-1 mb-1">
-          
+        <div>
+          <h1 class="text-lg sm:text-xl font-bold text-slate-800">Toilet Signs</h1>
+          <p class="text-xs text-slate-500 hidden sm:block">Collection of creative bathroom signs</p>
         </div>
       </div>
-      
+
+      <div class="flex items-center gap-2 sm:gap-3">
+        {% if user.is_authenticated %}
+          <div class="hidden sm:flex items-center gap-2 text-sm text-slate-600">
+            <span class="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center">
+              <svg class="w-4 h-4 text-slate-500" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 12c2.7 0 5-2.3 5-5s-2.3-5-5-5-5 2.3-5 5 2.3 5 5 5zm0 2c-3.3 0-10 1.7-10 5v3h20v-3c0-3.3-6.7-5-10-5z"/>
+              </svg>
+            </span>
+          </div>
+          <form method="post" action="/logout/" class="inline">
+            {% csrf_token %}
+            <button type="submit" class="px-3 py-1.5 sm:px-4 sm:py-2 bg-slate-100 hover:bg-red-50 hover:text-red-600 text-slate-600 text-sm font-medium rounded-lg transition-colors">
+              Logout
+            </button>
+          </form>
+        {% else %}
+          <a href="/login/" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
+            Login
+          </a>
+        {% endif %}
+      </div>
     </div>
-    {% endfor %}
-</div>
-{% else %}
-<div class="bg-white rounded shadow p-8 text-center text-gray-500 text-lg">
-    No sign pairs available.
-</div>
-{% endif %}
-{% if is_paginated %}
-  <div>
-    {% if page_obj.has_previous %}
-      <a href="?page={{ page_obj.previous_page_number }}">Previous</a>
-    {% endif %}
-    <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
-    {% if page_obj.has_next %}
-      <a href="?page={{ page_obj.next_page_number }}">Next</a>
-    {% endif %}
   </div>
-  
-{% endif %}
+</header>
+
+<!-- Main Content -->
+<main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+  {% if pairs %}
+  <!-- Grid Layout -->
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+    {% for pair in pairs %}
+    <article class="card flex flex-col">
+      <!-- Images Section -->
+      <div class="grid grid-cols-2 gap-2 p-3 sm:p-4">
+        <div class="sign-wrapper sign-wrapper-men">
+          <div class="sign-container">
+            {% if pair.MenImageUrl %}
+              <img src="{{ AZURE_BLOB_BASE_URL }}{{ pair.MenImageUrl }}" alt="Men's sign" class="sign-img" loading="lazy">
+            {% else %}
+              <div class="w-full h-full flex items-center justify-center">
+                <svg class="w-12 h-12 text-slate-300" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 12c2.7 0 5-2.3 5-5s-2.3-5-5-5-5 2.3-5 5 2.3 5 5 5zm0 2c-3.3 0-10 1.7-10 5v3h20v-3c0-3.3-6.7-5-10-5z"/>
+                </svg>
+              </div>
+            {% endif %}
+          </div>
+          <span class="sign-label sign-men-label">Men</span>
+        </div>
+        <div class="sign-wrapper sign-wrapper-women">
+          <div class="sign-container">
+            {% if pair.WomenImageUrl %}
+              <img src="{{ AZURE_BLOB_BASE_URL }}{{ pair.WomenImageUrl }}" alt="Women's sign" class="sign-img" loading="lazy">
+            {% else %}
+              <div class="w-full h-full flex items-center justify-center">
+                <svg class="w-12 h-12 text-slate-300" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 12c2.7 0 5-2.3 5-5s-2.3-5-5-5-5 2.3-5 5 2.3 5 5 5zm0 2c-3.3 0-10 1.7-10 5v3h20v-3c0-3.3-6.7-5-10-5z"/>
+                </svg>
+              </div>
+            {% endif %}
+          </div>
+          <span class="sign-label sign-women-label">Women</span>
+        </div>
+      </div>
+
+      <!-- Info Section -->
+      <div class="px-3 sm:px-4 pb-3 sm:pb-4 flex flex-col flex-grow">
+        <h2 class="text-base sm:text-lg font-bold text-slate-800 mb-1 line-clamp-1">{{ pair.Place }}</h2>
+
+        {% if pair.Description %}
+        <p class="text-sm text-slate-600 mb-3 line-clamp-2">{{ pair.Description }}</p>
+        {% endif %}
+
+        <!-- Metadata tags -->
+        <div class="flex flex-wrap gap-1.5 mb-3">
+          {% if pair.Country %}
+          <span class="meta-tag">
+            <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"/>
+            </svg>
+            {{ pair.Country }}
+          </span>
+          {% endif %}
+          {% if pair.City %}
+          <span class="meta-tag">
+            <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+            </svg>
+            {{ pair.City }}
+          </span>
+          {% endif %}
+          {% if pair.Restaurant %}
+          <span class="meta-tag">
+            <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+            </svg>
+            {{ pair.Restaurant }}
+          </span>
+          {% endif %}
+        </div>
+
+        <!-- Actions -->
+        <div class="flex items-center justify-between mt-auto">
+          {% if pair.Latitude and pair.Longitude %}
+          <a href="https://maps.google.com/?q={{ pair.Latitude }},{{ pair.Longitude }}" target="_blank" rel="noopener" class="location-badge hover:bg-blue-50 hover:text-blue-600 transition-colors">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+            </svg>
+            View on map
+          </a>
+          {% else %}
+          <span></span>
+          {% endif %}
+
+          {% if request.user.is_superuser %}
+          <a href="{% url 'gallery:edit_label' pair.RowKey %}" class="px-3 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-700 text-xs font-semibold rounded-lg transition-colors">
+            Edit
+          </a>
+          {% endif %}
+        </div>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+
+  <!-- Pagination -->
+  {% if is_paginated %}
+  <nav class="mt-8 flex justify-center">
+    <div class="flex items-center gap-2 bg-white rounded-xl shadow-sm px-4 py-2">
+      {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}" class="px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
+          <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+          </svg>
+          Prev
+        </a>
+      {% endif %}
+
+      <span class="px-3 py-1.5 text-sm font-medium text-slate-800 bg-slate-100 rounded-lg">
+        {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}
+      </span>
+
+      {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}" class="px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
+          Next
+          <svg class="w-4 h-4 inline ml-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+          </svg>
+        </a>
+      {% endif %}
+    </div>
+  </nav>
+  {% endif %}
+
+  {% else %}
+  <!-- Empty State -->
+  <div class="flex flex-col items-center justify-center py-16">
+    <div class="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mb-4">
+      <svg class="w-12 h-12 text-slate-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"/>
+      </svg>
+    </div>
+    <h3 class="text-lg font-semibold text-slate-800 mb-1">No signs yet</h3>
+    <p class="text-slate-500 text-sm text-center max-w-xs">Start by uploading your first toilet sign pair to build the collection.</p>
+  </div>
+  {% endif %}
+</main>
 {% endblock %}
