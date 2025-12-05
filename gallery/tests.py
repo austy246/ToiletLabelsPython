@@ -1,10 +1,11 @@
 import os
+
+from azure.core.exceptions import ResourceNotFoundError
 from django.test import TestCase
 from unittest.mock import patch, MagicMock
+
 from .services.azure_blob import AzureBlobManager
 from .services.azure_table import AzureTableManager
-
-from unittest.mock import patch
 
 @patch.dict(os.environ, {"AZURE_STORAGE_CONNECTION_STRING": "fake-connection-string"})
 class AzureBlobManagerTest(TestCase):
@@ -34,8 +35,8 @@ class AzureTableManagerTest(TestCase):
         mock_table_client.get_entity.return_value = {'RowKey': 'id1'}
         result = manager.get_label('id1')
         self.assertEqual(result['RowKey'], 'id1')
-        # Test get_label returns None on exception
-        mock_table_client.get_entity.side_effect = Exception('Not found')
+        # Test get_label returns None on ResourceNotFoundError
+        mock_table_client.get_entity.side_effect = ResourceNotFoundError('Not found')
         result = manager.get_label('id2')
         self.assertIsNone(result)
     @patch('gallery.services.azure_table.TableServiceClient')

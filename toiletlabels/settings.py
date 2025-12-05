@@ -136,7 +136,7 @@ STORAGES = {
 AZURE_ACCOUNT_NAME = os.environ.get('AZURE_ACCOUNT_NAME', '')
 AZURE_ACCOUNT_KEY = os.environ.get('AZURE_ACCOUNT_KEY', '')
 AZURE_CONTAINER = os.environ.get('AZURE_CONTAINER', 'toiletlabels')
-AZURE_TABLE_NAME = os.environ.get('AZURE_TABLE_NAME', 'toiletlabels')
+AZURE_TABLE_NAME = os.environ.get('AZURE_TABLE_NAME', 'ToiletLabels')
 AZURE_STORAGE_CONNECTION_STRING = os.environ.get('AZURE_STORAGE_CONNECTION_STRING', '')
 
 # Default primary key field type

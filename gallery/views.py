@@ -1,9 +1,11 @@
+import os
+import uuid
+
 from django.shortcuts import render, redirect
-from django.contrib.auth.decorators import login_required
-from django.urls import reverse
+from django.conf import settings
+
 from .services.azure_table import AzureTableManager
 from .services.azure_blob import AzureBlobManager
-import uuid
 
 def upload_label(request):
     table_manager = AzureTableManager()
@@ -17,13 +19,12 @@ def upload_label(request):
         women_image = request.FILES['women_image']
         label_id = str(uuid.uuid4())
         # Upload images to Azure Blob Storage
-        import os
         men_ext = os.path.splitext(men_image.name)[1]
         women_ext = os.path.splitext(women_image.name)[1]
         men_filename = f"{label_id}_men{men_ext}"
         women_filename = f"{label_id}_women{women_ext}"
-        men_url = blob_manager.upload_image(men_image, 'toiletlabels', men_filename)
-        women_url = blob_manager.upload_image(women_image, 'toiletlabels', women_filename)
+        blob_manager.upload_image(men_image, settings.AZURE_CONTAINER, men_filename)
+        blob_manager.upload_image(women_image, settings.AZURE_CONTAINER, women_filename)
         # Store only the filenames in Azure Table
         table_manager.upsert_label(
             label_id=label_id,
@@ -58,16 +59,14 @@ def edit_label(request, pk):
         women_filename = pair.get('WomenImageUrl', '')
         # Handle men image upload if provided
         if men_image:
-            import os
             men_ext = os.path.splitext(men_image.name)[1]
             men_filename = f"{pk}_men{men_ext}"
-            blob_manager.upload_image(men_image, 'toiletlabels', men_filename)
+            blob_manager.upload_image(men_image, settings.AZURE_CONTAINER, men_filename)
         # Handle women image upload if provided
         if women_image:
-            import os
             women_ext = os.path.splitext(women_image.name)[1]
             women_filename = f"{pk}_women{women_ext}"
-            blob_manager.upload_image(women_image, 'toiletlabels', women_filename)
+            blob_manager.upload_image(women_image, settings.AZURE_CONTAINER, women_filename)
         table_manager.upsert_label(
             label_id=pk,
             place=place,
