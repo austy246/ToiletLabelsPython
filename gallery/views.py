@@ -1,15 +1,25 @@
 from django.shortcuts import render, redirect
-from django.contrib.auth.decorators import login_required
+from django.http import HttpResponseForbidden
 from django.urls import reverse
 from .services.azure_table import AzureTableManager
 from .services.azure_blob import AzureBlobManager
 import uuid
 
+
+def _require_superuser(request):
+    if not request.user.is_authenticated:
+        return redirect(f'/login/?next={request.path}')
+    if not request.user.is_superuser:
+        return HttpResponseForbidden('Access denied')
+    return None
+
+
 def upload_label(request):
+    denied = _require_superuser(request)
+    if denied:
+        return denied
     table_manager = AzureTableManager()
     blob_manager = AzureBlobManager()
-    if not request.user.is_authenticated or not request.user.is_superuser:
-        return render(request, '403.html', status=403)
     if request.method == 'POST':
         place = request.POST.get('place', '')
         description = request.POST.get('description', '')
@@ -43,13 +53,15 @@ def upload_label(request):
 
 
 def edit_label(request, pk):
+    denied = _require_superuser(request)
+    if denied:
+        return denied
     table_manager = AzureTableManager()
     blob_manager = AzureBlobManager()
-    if not request.user.is_authenticated or not request.user.is_superuser:
-        return render(request, '403.html', status=403)
     pair = table_manager.get_label(pk)
     if not pair:
-        return render(request, '404.html', status=404)
+        from django.http import Http404
+        raise Http404
     if request.method == 'POST':
         place = request.POST.get('place', '')
         description = request.POST.get('description', '')
