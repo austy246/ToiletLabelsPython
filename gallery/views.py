@@ -11,8 +11,10 @@ def upload_label(request):
     if not request.user.is_authenticated or not request.user.is_superuser:
         return render(request, '403.html', status=403)
     if request.method == 'POST':
-        place = request.POST['place']
-        description = request.POST['description']
+        place = request.POST.get('place', '')
+        description = request.POST.get('description', '')
+        country = request.POST.get('country', '')
+        city = request.POST.get('city', '')
         men_image = request.FILES['men_image']
         women_image = request.FILES['women_image']
         label_id = str(uuid.uuid4())
@@ -33,6 +35,8 @@ def upload_label(request):
             women_image_url=women_filename,
             num_voters=0,
             avg_vote=0,
+            country=country,
+            city=city,
         )
         return redirect(reverse('gallery:signpair_list'))
     return render(request, 'gallery/upload_label.html')
@@ -49,7 +53,6 @@ def edit_label(request, pk):
     if request.method == 'POST':
         place = request.POST.get('place', '')
         description = request.POST.get('description', '')
-        restaurant = request.POST.get('restaurant', '')
         country = request.POST.get('country', '')
         city = request.POST.get('city', '')
         men_image = request.FILES.get('men_image')
@@ -78,7 +81,6 @@ def edit_label(request, pk):
             avg_vote=pair.get('AvgVote', 0),
             country=country,
             city=city,
-            restaurant=restaurant,
         )
         return redirect(reverse('gallery:signpair_list'))
     return render(request, 'gallery/edit_label.html', {
