@@ -185,3 +185,34 @@ class UpsertCoordinatesTest(TestCase):
         entity = mock_table_client.upsert_entity.call_args.kwargs["entity"]
         self.assertEqual(entity["Latitude"], "")
         self.assertEqual(entity["Longitude"], "")
+
+
+from django.core.files.uploadedfile import SimpleUploadedFile
+
+
+class UploadLabelViewTest(TestCase):
+    def setUp(self):
+        from django.contrib.auth.models import User
+        self.user = User.objects.create_superuser("admin", "a@b.c", "pw")
+        self.client.force_login(self.user)
+
+    @patch("gallery.views.resolve_coordinates")
+    @patch("gallery.views.AzureBlobManager")
+    @patch("gallery.views.AzureTableManager")
+    def test_upload_passes_resolved_coordinates(self, mock_table_cls,
+                                                mock_blob_cls, mock_resolve):
+        mock_table = MagicMock()
+        mock_table_cls.return_value = mock_table
+        mock_blob_cls.return_value = MagicMock()
+        mock_resolve.return_value = (50.1, 14.2)
+        men = SimpleUploadedFile("m.jpg", b"menbytes", content_type="image/jpeg")
+        women = SimpleUploadedFile("w.jpg", b"womenbytes", content_type="image/jpeg")
+        resp = self.client.post("/upload/", {
+            "place": "Cafe", "description": "d", "country": "CZ",
+            "city": "Prague", "men_image": men, "women_image": women,
+        })
+        self.assertEqual(resp.status_code, 302)
+        kwargs = mock_table.upsert_label.call_args.kwargs
+        self.assertEqual(kwargs["latitude"], 50.1)
+        self.assertEqual(kwargs["longitude"], 14.2)
+        mock_resolve.assert_called_once()
