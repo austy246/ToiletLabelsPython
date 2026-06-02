@@ -20,6 +20,17 @@ class AzureBlobManagerTest(TestCase):
         self.assertEqual(url, 'https://fakeurl.com/blob.jpg')
         mock_blob_client.upload_blob.assert_called_with(b'data', overwrite=True)
 
+    @patch('gallery.services.azure_blob.BlobServiceClient')
+    def test_download_image(self, mock_blob_service_client):
+        mock_blob_client = MagicMock()
+        mock_container_client = MagicMock()
+        mock_container_client.get_blob_client.return_value = mock_blob_client
+        mock_blob_service_client.from_connection_string.return_value.get_container_client.return_value = mock_container_client
+        mock_blob_client.download_blob.return_value.readall.return_value = b'imgdata'
+        manager = AzureBlobManager('fake-conn-string')
+        data = manager.download_image('container', 'blob.jpg')
+        self.assertEqual(data, b'imgdata')
+
 @patch.dict(os.environ, {"AZURE_STORAGE_CONNECTION_STRING": "fake-connection-string"})
 class AzureTableManagerTest(TestCase):
     @patch('gallery.services.azure_table.TableServiceClient')
