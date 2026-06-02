@@ -27,3 +27,8 @@ class AzureBlobManager:
         blob_client = container_client.get_blob_client(blob_name)
         blob_client.upload_blob(file, overwrite=True)
         return blob_client.url
+
+    def download_image(self, container_name, blob_name):
+        container_client = self.blob_service_client.get_container_client(container_name)
+        blob_client = container_client.get_blob_client(blob_name)
+        return blob_client.download_blob().readall()
