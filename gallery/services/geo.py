@@ -3,7 +3,10 @@
 Priority: EXIF GPS (men photo) -> EXIF GPS (women photo) -> geocode from
 Place/City/Country -> None. Pure module, no Django/Azure dependencies.
 """
+import json
 from io import BytesIO
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
 
 from PIL import Image
 from PIL.ExifTags import GPSTAGS
@@ -44,5 +47,34 @@ def extract_gps(image_bytes):
         if str(lon_ref).upper().startswith("W"):
             lon_deg = -lon_deg
         return (round(lat_deg, 6), round(lon_deg, 6))
+    except Exception:
+        return None
+
+
+_NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
+# Nominatim usage policy requires a descriptive User-Agent with contact info.
+_USER_AGENT = "ToiletLabels/1.0 (hausterlitz@gmail.com)"
+
+
+def geocode_place(place, city, country):
+    """Geocode a free-form "Place, City, Country" query via Nominatim.
+
+    Place is usually a venue/restaurant name, so it leads the query to pull
+    accuracy down to a specific point of interest. Returns (lat, lon) or None.
+    """
+    parts = [p.strip() for p in (place, city, country) if p and p.strip()]
+    if not parts:
+        return None
+    query = ", ".join(parts)
+    params = urlencode({"q": query, "format": "json", "limit": 1})
+    request = Request(
+        f"{_NOMINATIM_URL}?{params}", headers={"User-Agent": _USER_AGENT}
+    )
+    try:
+        with urlopen(request, timeout=10) as response:
+            data = json.loads(response.read().decode("utf-8"))
+        if not data:
+            return None
+        return (round(float(data[0]["lat"]), 6), round(float(data[0]["lon"]), 6))
     except Exception:
         return None

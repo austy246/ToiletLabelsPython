@@ -85,3 +85,35 @@ class GeoExtractGpsTest(TestCase):
 
     def test_none_input_returns_none(self):
         self.assertIsNone(extract_gps(None))
+
+
+import json as _json
+from gallery.services.geo import geocode_place
+
+
+class GeoGeocodeTest(TestCase):
+    @patch("gallery.services.geo.urlopen")
+    def test_returns_first_result_coords(self, mock_urlopen):
+        cm = MagicMock()
+        cm.read.return_value = _json.dumps(
+            [{"lat": "50.087", "lon": "14.421"}]
+        ).encode("utf-8")
+        mock_urlopen.return_value.__enter__.return_value = cm
+        self.assertEqual(geocode_place("Cafe Louvre", "Prague", "Czechia"),
+                         (50.087, 14.421))
+
+    def test_empty_fields_returns_none_without_network(self):
+        with patch("gallery.services.geo.urlopen") as mock_urlopen:
+            self.assertIsNone(geocode_place("", "", ""))
+            mock_urlopen.assert_not_called()
+
+    @patch("gallery.services.geo.urlopen")
+    def test_no_results_returns_none(self, mock_urlopen):
+        cm = MagicMock()
+        cm.read.return_value = b"[]"
+        mock_urlopen.return_value.__enter__.return_value = cm
+        self.assertIsNone(geocode_place("Nowhere", "", ""))
+
+    @patch("gallery.services.geo.urlopen", side_effect=OSError("network"))
+    def test_network_error_returns_none(self, mock_urlopen):
+        self.assertIsNone(geocode_place("Cafe", "Prague", "CZ"))
