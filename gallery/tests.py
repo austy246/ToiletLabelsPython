@@ -146,3 +146,31 @@ class GeoResolveTest(TestCase):
     @patch("gallery.services.geo.extract_gps", return_value=None)
     def test_returns_none_when_nothing_found(self, mock_extract, mock_geocode):
         self.assertIsNone(resolve_coordinates(b"m", b"w", "", "", ""))
+
+
+@patch.dict(os.environ, {"AZURE_STORAGE_CONNECTION_STRING": "fake-connection-string"})
+class UpsertCoordinatesTest(TestCase):
+    @patch("gallery.services.azure_table.TableServiceClient")
+    def test_stores_float_coordinates(self, mock_tsc):
+        mock_table_client = MagicMock()
+        mock_tsc.from_connection_string.return_value.get_table_client.return_value = (
+            mock_table_client
+        )
+        manager = AzureTableManager()
+        manager.upsert_label("id1", "P", "D", "m.jpg", "w.jpg", 0, 0,
+                             latitude=50.1, longitude=14.2)
+        entity = mock_table_client.upsert_entity.call_args.kwargs["entity"]
+        self.assertEqual(entity["Latitude"], 50.1)
+        self.assertEqual(entity["Longitude"], 14.2)
+
+    @patch("gallery.services.azure_table.TableServiceClient")
+    def test_empty_coordinates_stored_as_blank(self, mock_tsc):
+        mock_table_client = MagicMock()
+        mock_tsc.from_connection_string.return_value.get_table_client.return_value = (
+            mock_table_client
+        )
+        manager = AzureTableManager()
+        manager.upsert_label("id1", "P", "D", "m.jpg", "w.jpg", 0, 0)
+        entity = mock_table_client.upsert_entity.call_args.kwargs["entity"]
+        self.assertEqual(entity["Latitude"], "")
+        self.assertEqual(entity["Longitude"], "")

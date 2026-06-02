@@ -12,7 +12,7 @@ class AzureTableManager:
         except Exception as e:
             print(f"[AzureToiletLabelService] Table creation failed or already exists: {e}")
 
-    def upsert_label(self, label_id, place, description, men_image_url, women_image_url, num_voters, avg_vote, country=None, city=None, created=None):
+    def upsert_label(self, label_id, place, description, men_image_url, women_image_url, num_voters, avg_vote, country=None, city=None, created=None, latitude=None, longitude=None):
         import datetime
         if created is None:
             created = datetime.datetime.utcnow().isoformat()
@@ -27,6 +27,8 @@ class AzureTableManager:
             'AvgVote': avg_vote,
             'Country': country if country is not None else '',
             'City': city if city is not None else '',
+            'Latitude': latitude if latitude is not None else '',
+            'Longitude': longitude if longitude is not None else '',
             'Created': created,
         }
         self.table_client.upsert_entity(entity=entity)
