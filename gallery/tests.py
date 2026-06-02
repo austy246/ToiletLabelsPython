@@ -46,3 +46,42 @@ class AzureTableManagerTest(TestCase):
         manager = AzureTableManager()
         result = manager.list_labels()
         self.assertEqual(len(result), 2)
+
+
+from io import BytesIO
+from PIL import Image
+from gallery.services.geo import extract_gps
+
+
+def _make_image_with_gps(lat_ref, lat_dms, lon_ref, lon_dms):
+    img = Image.new("RGB", (10, 10))
+    exif = img.getexif()
+    exif[0x8825] = {
+        1: lat_ref,
+        2: lat_dms,
+        3: lon_ref,
+        4: lon_dms,
+    }
+    buf = BytesIO()
+    img.save(buf, format="JPEG", exif=exif)
+    return buf.getvalue()
+
+
+class GeoExtractGpsTest(TestCase):
+    def test_extracts_decimal_degrees_north_east(self):
+        data = _make_image_with_gps("N", (50.0, 5.0, 0.0), "E", (14.0, 25.0, 0.0))
+        self.assertEqual(extract_gps(data), (50.083333, 14.416667))
+
+    def test_south_west_are_negative(self):
+        data = _make_image_with_gps("S", (33.0, 51.0, 0.0), "W", (151.0, 12.0, 0.0))
+        lat, lon = extract_gps(data)
+        self.assertLess(lat, 0)
+        self.assertLess(lon, 0)
+
+    def test_no_exif_returns_none(self):
+        buf = BytesIO()
+        Image.new("RGB", (10, 10)).save(buf, format="JPEG")
+        self.assertIsNone(extract_gps(buf.getvalue()))
+
+    def test_none_input_returns_none(self):
+        self.assertIsNone(extract_gps(None))
