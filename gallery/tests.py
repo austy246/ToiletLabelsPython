@@ -216,3 +216,56 @@ class UploadLabelViewTest(TestCase):
         self.assertEqual(kwargs["latitude"], 50.1)
         self.assertEqual(kwargs["longitude"], 14.2)
         mock_resolve.assert_called_once()
+
+
+from django.core.management import call_command
+from io import StringIO as _StringIO
+
+
+@patch.dict(os.environ, {"AZURE_STORAGE_CONNECTION_STRING": "fake-connection-string"})
+class BackfillGeoCommandTest(TestCase):
+    @patch("gallery.management.commands.backfill_geo.geocode_place")
+    @patch("gallery.management.commands.backfill_geo.extract_gps")
+    @patch("gallery.management.commands.backfill_geo.AzureBlobManager")
+    @patch("gallery.management.commands.backfill_geo.AzureTableManager")
+    def test_updates_only_labels_missing_coords(self, mock_table_cls, mock_blob_cls,
+                                                mock_extract, mock_geocode):
+        mock_table = MagicMock()
+        mock_table_cls.return_value = mock_table
+        mock_blob = MagicMock()
+        mock_blob_cls.return_value = mock_blob
+        mock_blob.download_image.return_value = b"img"
+        mock_table.list_labels.return_value = [
+            {"RowKey": "id1", "Latitude": "", "Longitude": "",
+             "MenImageUrl": "m.jpg", "WomenImageUrl": "w.jpg",
+             "Place": "Cafe", "City": "Prague", "Country": "CZ",
+             "Description": "d", "NumVoters": 0, "AvgVote": 0, "Created": "2024"},
+            {"RowKey": "id2", "Latitude": 50.0, "Longitude": 14.0,
+             "MenImageUrl": "m2.jpg", "WomenImageUrl": "w2.jpg"},
+        ]
+        mock_extract.return_value = (1.0, 2.0)
+        call_command("backfill_geo", stdout=_StringIO())
+        self.assertEqual(mock_table.upsert_label.call_count, 1)
+        kwargs = mock_table.upsert_label.call_args.kwargs
+        self.assertEqual(kwargs["label_id"], "id1")
+        self.assertEqual(kwargs["latitude"], 1.0)
+        self.assertEqual(kwargs["longitude"], 2.0)
+        self.assertEqual(kwargs["created"], "2024")
+
+    @patch("gallery.management.commands.backfill_geo.geocode_place")
+    @patch("gallery.management.commands.backfill_geo.extract_gps")
+    @patch("gallery.management.commands.backfill_geo.AzureBlobManager")
+    @patch("gallery.management.commands.backfill_geo.AzureTableManager")
+    def test_dry_run_does_not_save(self, mock_table_cls, mock_blob_cls,
+                                   mock_extract, mock_geocode):
+        mock_table = MagicMock()
+        mock_table_cls.return_value = mock_table
+        mock_blob_cls.return_value = MagicMock()
+        mock_table.list_labels.return_value = [
+            {"RowKey": "id1", "Latitude": "", "Longitude": "",
+             "MenImageUrl": "m.jpg", "WomenImageUrl": "w.jpg",
+             "Place": "Cafe", "City": "Prague", "Country": "CZ"},
+        ]
+        mock_extract.return_value = (1.0, 2.0)
+        call_command("backfill_geo", "--dry-run", stdout=_StringIO())
+        mock_table.upsert_label.assert_not_called()
