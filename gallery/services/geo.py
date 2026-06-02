@@ -78,3 +78,17 @@ def geocode_place(place, city, country):
         return (round(float(data[0]["lat"]), 6), round(float(data[0]["lon"]), 6))
     except Exception:
         return None
+
+
+def resolve_coordinates(men_bytes, women_bytes, place, city, country):
+    """Resolve coordinates using the project priority order.
+
+    EXIF(men) -> EXIF(women) -> geocode(Place, City, Country) -> None.
+    """
+    coords = extract_gps(men_bytes)
+    if coords:
+        return coords
+    coords = extract_gps(women_bytes)
+    if coords:
+        return coords
+    return geocode_place(place, city, country)

@@ -117,3 +117,32 @@ class GeoGeocodeTest(TestCase):
     @patch("gallery.services.geo.urlopen", side_effect=OSError("network"))
     def test_network_error_returns_none(self, mock_urlopen):
         self.assertIsNone(geocode_place("Cafe", "Prague", "CZ"))
+
+
+from gallery.services.geo import resolve_coordinates
+
+
+class GeoResolveTest(TestCase):
+    @patch("gallery.services.geo.geocode_place")
+    @patch("gallery.services.geo.extract_gps")
+    def test_prefers_men_exif(self, mock_extract, mock_geocode):
+        mock_extract.return_value = (1.0, 2.0)
+        result = resolve_coordinates(b"men", b"women", "p", "c", "co")
+        self.assertEqual(result, (1.0, 2.0))
+        mock_geocode.assert_not_called()
+        self.assertEqual(mock_extract.call_count, 1)
+
+    @patch("gallery.services.geo.geocode_place")
+    @patch("gallery.services.geo.extract_gps")
+    def test_falls_back_to_women_then_geocode(self, mock_extract, mock_geocode):
+        mock_extract.side_effect = [None, None]  # men None, women None
+        mock_geocode.return_value = (3.0, 4.0)
+        result = resolve_coordinates(b"men", b"women", "p", "c", "co")
+        self.assertEqual(result, (3.0, 4.0))
+        self.assertEqual(mock_extract.call_count, 2)
+        mock_geocode.assert_called_once_with("p", "c", "co")
+
+    @patch("gallery.services.geo.geocode_place", return_value=None)
+    @patch("gallery.services.geo.extract_gps", return_value=None)
+    def test_returns_none_when_nothing_found(self, mock_extract, mock_geocode):
+        self.assertIsNone(resolve_coordinates(b"m", b"w", "", "", ""))
