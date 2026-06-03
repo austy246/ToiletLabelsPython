@@ -310,9 +310,11 @@ class UploadLabelViewTest(TestCase):
         self.assertEqual(kwargs["longitude"], 14.3)
         mock_resolve.assert_not_called()
 
+    @patch("gallery.views.AzureBlobManager")
     @patch("gallery.views.AzureTableManager")
-    def test_upload_get_renders_picker_with_key(self, mock_table_cls):
+    def test_upload_get_renders_picker_with_key(self, mock_table_cls, mock_blob_cls):
         mock_table_cls.return_value = MagicMock()
+        mock_blob_cls.return_value = MagicMock()
         with patch.dict(os.environ, {"MAPY_API_KEY": "testkey"}):
             resp = self.client.get("/upload/")
         self.assertIn('id="location-map"', resp.content.decode())

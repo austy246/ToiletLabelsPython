@@ -9,6 +9,20 @@ import uuid
 import os
 
 
+def _picker_config(lat=None, lon=None):
+    """Build JSON-safe config for the location picker partial."""
+    def _f(v):
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return None
+    return {
+        'apiKey': os.environ.get('MAPY_API_KEY', ''),
+        'lat': _f(lat),
+        'lon': _f(lon),
+    }
+
+
 def _manual_coords(request):
     """Return (lat, lon) from POSTed latitude/longitude fields, or None."""
     lat = request.POST.get('latitude', '').strip()
@@ -69,7 +83,6 @@ def upload_label(request):
             coords = resolve_coordinates(men_bytes, women_bytes, place, city, country)
             latitude, longitude = coords if coords else (None, None)
         # Upload images to Azure Blob Storage
-        import os
         men_ext = os.path.splitext(men_image.name)[1]
         women_ext = os.path.splitext(women_image.name)[1]
         men_filename = f"{label_id}_men{men_ext}"
@@ -98,6 +111,7 @@ def upload_label(request):
         return redirect(reverse('gallery:signpair_list'))
     return render(request, 'gallery/upload_label.html', {
         'MAPY_API_KEY': os.environ.get('MAPY_API_KEY', ''),
+        'location_picker_config': _picker_config(),
     })
 
 
@@ -126,7 +140,6 @@ def edit_label(request, pk):
         women_bytes = None
         # Handle men image upload if provided
         if men_image:
-            import os
             men_bytes = men_image.read()
             men_ext = os.path.splitext(men_image.name)[1]
             men_filename = f"{pk}_men{men_ext}"
@@ -134,7 +147,6 @@ def edit_label(request, pk):
             men_thumb = _make_and_upload_thumb(blob_manager, men_bytes, men_filename)
         # Handle women image upload if provided
         if women_image:
-            import os
             women_bytes = women_image.read()
             women_ext = os.path.splitext(women_image.name)[1]
             women_filename = f"{pk}_women{women_ext}"
@@ -179,6 +191,7 @@ def edit_label(request, pk):
         'MAPY_API_KEY': os.environ.get('MAPY_API_KEY', ''),
         'init_lat': pair.get('Latitude', ''),
         'init_lon': pair.get('Longitude', ''),
+        'location_picker_config': _picker_config(pair.get('Latitude'), pair.get('Longitude')),
     })
 
 def _build_map_points(pairs, base_url):

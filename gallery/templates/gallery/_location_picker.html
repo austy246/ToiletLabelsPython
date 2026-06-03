@@ -1,0 +1,80 @@
+{# Reusable Mapy.com location picker. Expects context: MAPY_API_KEY, optional init_lat/init_lon. #}
+{# Must be included INSIDE a <form> so the hidden inputs are submitted. #}
+{% if MAPY_API_KEY %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<div class="mb-4">
+  <label class="block text-gray-700 text-sm font-bold mb-2">Místo (klikni nebo přetáhni značku):</label>
+  <div id="location-map" class="w-full rounded border" style="height:320px"></div>
+  <div class="flex items-center justify-between mt-2 text-sm text-gray-600">
+    <span id="location-readout">{% if init_lat and init_lon %}{{ init_lat }}, {{ init_lon }}{% else %}Nevybráno{% endif %}</span>
+    <button type="button" id="location-clear" class="text-blue-600 hover:underline">Vymazat</button>
+  </div>
+  <input type="hidden" name="latitude" id="id_latitude" value="{% if init_lat and init_lon %}{{ init_lat }}{% endif %}">
+  <input type="hidden" name="longitude" id="id_longitude" value="{% if init_lat and init_lon %}{{ init_lon }}{% endif %}">
+</div>
+{{ location_picker_config|json_script:"location-picker-config" }}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+(function () {
+  var cfg = JSON.parse(document.getElementById('location-picker-config').textContent);
+  var map = L.map('location-map');
+  L.tileLayer('https://api.mapy.com/v1/maptiles/basic/256/{z}/{x}/{y}?apikey=' + cfg.apiKey, {
+    minZoom: 0,
+    maxZoom: 19,
+    attribution: '<a href="https://api.mapy.com/copyright" target="_blank" rel="noopener">&copy; Seznam.cz a.s. a další</a>',
+  }).addTo(map);
+
+  var LogoControl = L.Control.extend({
+    options: { position: 'bottomleft' },
+    onAdd: function () {
+      var container = L.DomUtil.create('div');
+      var link = L.DomUtil.create('a', '', container);
+      link.setAttribute('href', 'https://mapy.com/');
+      link.setAttribute('target', '_blank');
+      link.setAttribute('rel', 'noopener');
+      link.innerHTML = '<img src="https://api.mapy.com/img/api/logo.svg" alt="Mapy.com" style="height:18px;display:block">';
+      L.DomEvent.disableClickPropagation(link);
+      return container;
+    },
+  });
+  map.addControl(new LogoControl());
+
+  var latInput = document.getElementById('id_latitude');
+  var lonInput = document.getElementById('id_longitude');
+  var readout = document.getElementById('location-readout');
+  var marker = null;
+
+  function round6(n) { return Math.round(n * 1e6) / 1e6; }
+
+  function setPoint(latlng) {
+    var lat = round6(latlng.lat);
+    var lon = round6(latlng.lng);
+    if (!marker) {
+      marker = L.marker([lat, lon], { draggable: true }).addTo(map);
+      marker.on('dragend', function () { setPoint(marker.getLatLng()); });
+    } else {
+      marker.setLatLng([lat, lon]);
+    }
+    latInput.value = lat;
+    lonInput.value = lon;
+    readout.textContent = lat + ', ' + lon;
+  }
+
+  if (cfg.lat !== null && cfg.lon !== null) {
+    setPoint({ lat: cfg.lat, lng: cfg.lon });
+    map.setView([cfg.lat, cfg.lon], 16);
+  } else {
+    map.setView([50.0, 14.0], 4);  // wide view over Central Europe
+  }
+
+  map.on('click', function (e) { setPoint(e.latlng); });
+
+  document.getElementById('location-clear').addEventListener('click', function () {
+    if (marker) { map.removeLayer(marker); marker = null; }
+    latInput.value = '';
+    lonInput.value = '';
+    readout.textContent = 'Nevybráno';
+  });
+})();
+</script>
+{% endif %}
