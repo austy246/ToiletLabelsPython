@@ -20,6 +20,22 @@ class AzureBlobManagerTest(TestCase):
         self.assertEqual(url, 'https://fakeurl.com/blob.jpg')
         mock_blob_client.upload_blob.assert_called_with(b'data', overwrite=True)
 
+    @patch('gallery.services.azure_blob.ContentSettings')
+    @patch('gallery.services.azure_blob.BlobServiceClient')
+    def test_upload_image_with_content_type(self, mock_blob_service_client, mock_content_settings):
+        mock_blob_client = MagicMock()
+        mock_container_client = MagicMock()
+        mock_container_client.get_blob_client.return_value = mock_blob_client
+        mock_blob_service_client.from_connection_string.return_value.get_container_client.return_value = mock_container_client
+        mock_blob_client.url = 'https://fakeurl.com/blob.webp'
+        sentinel = object()
+        mock_content_settings.return_value = sentinel
+        manager = AzureBlobManager('fake-conn-string')
+        manager.upload_image(b'data', 'container', 'blob.webp', content_type='image/webp')
+        mock_content_settings.assert_called_with(content_type='image/webp')
+        _, kwargs = mock_blob_client.upload_blob.call_args
+        self.assertEqual(kwargs.get('content_settings'), sentinel)
+
     @patch('gallery.services.azure_blob.BlobServiceClient')
     def test_download_image(self, mock_blob_service_client):
         mock_blob_client = MagicMock()
@@ -185,6 +201,31 @@ class UpsertCoordinatesTest(TestCase):
         entity = mock_table_client.upsert_entity.call_args.kwargs["entity"]
         self.assertEqual(entity["Latitude"], "")
         self.assertEqual(entity["Longitude"], "")
+
+    @patch("gallery.services.azure_table.TableServiceClient")
+    def test_stores_thumbnail_filenames(self, mock_tsc):
+        mock_table_client = MagicMock()
+        mock_tsc.from_connection_string.return_value.get_table_client.return_value = (
+            mock_table_client
+        )
+        manager = AzureTableManager()
+        manager.upsert_label("id1", "P", "D", "m.jpg", "w.jpg", 0, 0,
+                             men_thumb_url="m_thumb.webp", women_thumb_url="w_thumb.webp")
+        entity = mock_table_client.upsert_entity.call_args.kwargs["entity"]
+        self.assertEqual(entity["MenThumbUrl"], "m_thumb.webp")
+        self.assertEqual(entity["WomenThumbUrl"], "w_thumb.webp")
+
+    @patch("gallery.services.azure_table.TableServiceClient")
+    def test_empty_thumbnails_stored_as_blank(self, mock_tsc):
+        mock_table_client = MagicMock()
+        mock_tsc.from_connection_string.return_value.get_table_client.return_value = (
+            mock_table_client
+        )
+        manager = AzureTableManager()
+        manager.upsert_label("id1", "P", "D", "m.jpg", "w.jpg", 0, 0)
+        entity = mock_table_client.upsert_entity.call_args.kwargs["entity"]
+        self.assertEqual(entity["MenThumbUrl"], "")
+        self.assertEqual(entity["WomenThumbUrl"], "")
 
 
 from django.core.files.uploadedfile import SimpleUploadedFile
