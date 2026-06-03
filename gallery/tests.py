@@ -319,6 +319,20 @@ class UploadLabelViewTest(TestCase):
             resp = self.client.get("/upload/")
         self.assertIn('id="location-map"', resp.content.decode())
 
+    @patch("gallery.views.AzureBlobManager")
+    @patch("gallery.views.AzureTableManager")
+    def test_upload_form_images_first_and_search_button(self, mock_table_cls, mock_blob_cls):
+        mock_table_cls.return_value = MagicMock()
+        mock_blob_cls.return_value = MagicMock()
+        with patch.dict(os.environ, {"MAPY_API_KEY": "testkey"}):
+            resp = self.client.get("/upload/")
+        html = resp.content.decode()
+        # Image inputs come before the Place field.
+        self.assertLess(html.index('name="men_image"'), html.index('id="place"'))
+        # Geocode-search button and EXIF library are present.
+        self.assertIn('id="geocode-search"', html)
+        self.assertIn("exifr", html)
+
 
 class EditLabelViewTest(TestCase):
     def setUp(self):

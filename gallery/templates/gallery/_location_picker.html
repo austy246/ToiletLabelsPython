@@ -14,6 +14,7 @@
 </div>
 {{ location_picker_config|json_script:"location-picker-config" }}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exifr/dist/full.umd.js"></script>
 <script>
 (function () {
   var cfg = JSON.parse(document.getElementById('location-picker-config').textContent);
@@ -75,6 +76,57 @@
     lonInput.value = '';
     readout.textContent = 'Nevybráno';
   });
+
+  function centerOn(lat, lon) {
+    setPoint({ lat: lat, lng: lon });
+    map.setView([lat, lon], 16);
+  }
+
+  // Auto-fill location from a photo's EXIF GPS when it is selected.
+  function readExif(input) {
+    var file = input.files && input.files[0];
+    if (!file || !window.exifr) return;
+    window.exifr.gps(file).then(function (g) {
+      if (g && typeof g.latitude === 'number' && typeof g.longitude === 'number') {
+        centerOn(g.latitude, g.longitude);
+      }
+    }).catch(function () {});
+  }
+  ['men_image', 'women_image'].forEach(function (id) {
+    var input = document.getElementById(id);
+    if (input) input.addEventListener('change', function () { readExif(input); });
+  });
+
+  // "Search on map" button: geocode Place/City/Country via Mapy.com.
+  var searchBtn = document.getElementById('geocode-search');
+  if (searchBtn) {
+    searchBtn.addEventListener('click', function () {
+      var msg = document.getElementById('geocode-msg');
+      var parts = ['place', 'city', 'country'].map(function (id) {
+        var el = document.getElementById(id);
+        return el ? el.value.trim() : '';
+      }).filter(Boolean);
+      if (!parts.length) {
+        if (msg) msg.textContent = 'Vyplň místo, město nebo zemi.';
+        return;
+      }
+      if (msg) msg.textContent = 'Hledám…';
+      var url = 'https://api.mapy.com/v1/geocode?lang=cs&limit=1&apikey='
+        + encodeURIComponent(cfg.apiKey)
+        + '&query=' + encodeURIComponent(parts.join(', '));
+      fetch(url).then(function (r) { return r.json(); }).then(function (data) {
+        var item = data && data.items && data.items[0];
+        if (item && item.position) {
+          centerOn(item.position.lat, item.position.lon);
+          if (msg) msg.textContent = '';
+        } else if (msg) {
+          msg.textContent = 'Místo nenalezeno.';
+        }
+      }).catch(function () {
+        if (msg) msg.textContent = 'Chyba vyhledávání.';
+      });
+    });
+  }
 })();
 </script>
 {% endif %}
