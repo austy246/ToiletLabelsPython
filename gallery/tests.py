@@ -333,6 +333,7 @@ class SignpairListMapRenderTest(TestCase):
         self.assertIn("map-points-data", html)
         self.assertIn("api.mapy.com/v1/maptiles/basic", html)
         self.assertIn('id="pair-id1"', html)
+        self.assertIn("toilet-marker", html)
 
     def test_map_hidden_when_no_key(self):
         labels = [{"RowKey": "id1", "Latitude": 50.1, "Longitude": 14.2,
