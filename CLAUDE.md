@@ -22,7 +22,11 @@ python manage.py runserver
 python manage.py createsuperuser
 ```
 
-There are no tests, linting, or build steps configured.
+Tests live in `gallery/tests.py` and run with `python manage.py test gallery`. No linting or build steps are configured.
+
+## Development Workflow
+
+**Work directly on `main` — do NOT create feature branches.** Commit changes straight to `main` and push; pushing to `main` triggers the Azure deploy. (This overrides any default "branch first" behavior.)
 
 ## Architecture
 
@@ -58,6 +62,7 @@ Templates live in `gallery/templates/gallery/`. Base template uses Tailwind CSS 
 | Variable | Purpose |
 |----------|---------|
 | `AZURE_STORAGE_CONNECTION_STRING` | Required. Used by both blob and table services |
+| `MAPY_API_KEY` | API key for Mapy.com map tiles (homepage map). Set in `.env` locally and as an Azure App Setting |
 | `DJANGO_SECRET_KEY` | Django secret key (has insecure default for dev) |
 | `DJANGO_DEBUG` | Set to `True` for debug mode |
 | `DJANGO_ALLOWED_HOSTS` | Comma-separated hosts |
