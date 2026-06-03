@@ -77,6 +77,11 @@
     font-size: 0.7rem;
     color: #64748b;
   }
+  .card-highlight {
+    outline: 3px solid #3b82f6;
+    outline-offset: 2px;
+    transition: outline-color 0.3s ease;
+  }
 </style>
 
 <!-- Header -->
@@ -122,11 +127,92 @@
 
 <!-- Main Content -->
 <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+  {% if map_points and MAPY_API_KEY %}
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <section class="mb-6">
+    <div id="map" class="w-full rounded-2xl overflow-hidden shadow-sm" style="height:400px"></div>
+  </section>
+  {{ map_points|json_script:"map-points-data" }}
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+  (function () {
+    var points = JSON.parse(document.getElementById('map-points-data').textContent);
+    if (!points.length) return;
+    var apiKey = "{{ MAPY_API_KEY|escapejs }}";
+    var map = L.map('map');
+    L.tileLayer('https://api.mapy.com/v1/maptiles/basic/256/{z}/{x}/{y}?apikey=' + apiKey, {
+      minZoom: 0,
+      maxZoom: 19,
+      attribution: '<a href="https://api.mapy.com/copyright" target="_blank" rel="noopener">&copy; Seznam.cz a.s. a další</a>',
+    }).addTo(map);
+
+    // Required Mapy.com logo control.
+    var LogoControl = L.Control.extend({
+      options: { position: 'bottomleft' },
+      onAdd: function () {
+        var container = L.DomUtil.create('div');
+        var link = L.DomUtil.create('a', '', container);
+        link.setAttribute('href', 'https://mapy.com/');
+        link.setAttribute('target', '_blank');
+        link.setAttribute('rel', 'noopener');
+        link.innerHTML = '<img src="https://api.mapy.com/img/api/logo.svg" alt="Mapy.com" style="height:18px;display:block">';
+        L.DomEvent.disableClickPropagation(link);
+        return container;
+      },
+    });
+    map.addControl(new LogoControl());
+
+    function esc(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+      });
+    }
+
+    var markers = [];
+    points.forEach(function (p) {
+      var marker = L.marker([p.lat, p.lon]).addTo(map);
+      var html = '<div style="text-align:center;min-width:140px">';
+      if (p.men_url || p.women_url) {
+        html += '<div style="display:flex;gap:4px;justify-content:center;margin-bottom:6px">';
+        if (p.men_url) html += '<img src="' + esc(p.men_url) + '" style="width:60px;height:60px;object-fit:contain;border:2px solid #3b82f6;border-radius:6px">';
+        if (p.women_url) html += '<img src="' + esc(p.women_url) + '" style="width:60px;height:60px;object-fit:contain;border:2px solid #ec4899;border-radius:6px">';
+        html += '</div>';
+      }
+      html += '<div style="font-weight:600;margin-bottom:4px">' + esc(p.place) + '</div>';
+      html += '<a href="#" data-row="' + esc(p.row_key) + '" class="map-card-link" style="color:#2563eb;font-size:0.85rem">Zobrazit kartu</a>';
+      html += '</div>';
+      marker.bindPopup(html);
+      markers.push(marker);
+    });
+
+    if (markers.length === 1) {
+      map.setView(markers[0].getLatLng(), 13);
+    } else {
+      map.fitBounds(L.featureGroup(markers).getBounds().pad(0.2));
+    }
+
+    map.on('popupopen', function (e) {
+      var link = e.popup._contentNode.querySelector('.map-card-link');
+      if (!link) return;
+      link.addEventListener('click', function (ev) {
+        ev.preventDefault();
+        var card = document.getElementById('pair-' + link.getAttribute('data-row'));
+        if (card) {
+          card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          card.classList.add('card-highlight');
+          setTimeout(function () { card.classList.remove('card-highlight'); }, 2000);
+        }
+        map.closePopup();
+      });
+    });
+  })();
+  </script>
+  {% endif %}
   {% if pairs %}
   <!-- Grid Layout -->
   <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
     {% for pair in pairs %}
-    <article class="card flex flex-col">
+    <article id="pair-{{ pair.RowKey }}" class="card flex flex-col">
       <!-- Images Section -->
       <div class="grid grid-cols-2 gap-2 p-3 sm:p-4">
         <div class="sign-wrapper sign-wrapper-men">

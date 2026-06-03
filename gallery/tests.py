@@ -311,3 +311,31 @@ class SignpairListMapContextTest(TestCase):
         points = resp.context["map_points"]
         self.assertEqual(points[0]["place"], "Berlin")
         self.assertEqual(points[0]["men_url"], "")
+
+
+class SignpairListMapRenderTest(TestCase):
+    @patch("gallery.views.AzureBlobManager")
+    @patch("gallery.views.AzureTableManager")
+    def _get(self, labels, key, mock_table_cls, mock_blob_cls):
+        mock_table = MagicMock()
+        mock_table_cls.return_value = mock_table
+        mock_blob_cls.get_blob_base_url.return_value = "https://blob/"
+        mock_table.list_labels.return_value = labels
+        with patch.dict(os.environ, {"MAPY_API_KEY": key}):
+            return self.client.get("/")
+
+    def test_map_rendered_when_points_and_key(self):
+        labels = [{"RowKey": "id1", "Latitude": 50.1, "Longitude": 14.2,
+                   "Place": "Cafe", "City": "", "MenImageUrl": "", "WomenImageUrl": ""}]
+        resp = self._get(labels, "testkey")
+        html = resp.content.decode()
+        self.assertIn('id="map"', html)
+        self.assertIn("map-points-data", html)
+        self.assertIn("api.mapy.com/v1/maptiles/basic", html)
+        self.assertIn('id="pair-id1"', html)
+
+    def test_map_hidden_when_no_key(self):
+        labels = [{"RowKey": "id1", "Latitude": 50.1, "Longitude": 14.2,
+                   "Place": "Cafe", "City": "", "MenImageUrl": "", "WomenImageUrl": ""}]
+        resp = self._get(labels, "")
+        self.assertNotIn('id="map"', resp.content.decode())
