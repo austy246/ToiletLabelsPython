@@ -289,6 +289,81 @@ class UploadLabelViewTest(TestCase):
         self.assertTrue(kwargs["men_thumb_url"].endswith("_men_thumb.webp"))
         self.assertTrue(kwargs["women_thumb_url"].endswith("_women_thumb.webp"))
 
+    @patch("gallery.views.resolve_coordinates")
+    @patch("gallery.views.AzureBlobManager")
+    @patch("gallery.views.AzureTableManager")
+    def test_upload_manual_coords_win(self, mock_table_cls, mock_blob_cls, mock_resolve):
+        mock_table = MagicMock()
+        mock_table_cls.return_value = mock_table
+        mock_blob_cls.return_value = MagicMock()
+        mock_resolve.return_value = (10.0, 20.0)  # would be used if no manual coords
+        men = SimpleUploadedFile("m.jpg", b"x", content_type="image/jpeg")
+        women = SimpleUploadedFile("w.jpg", b"y", content_type="image/jpeg")
+        resp = self.client.post("/upload/", {
+            "place": "Cafe", "description": "d", "country": "", "city": "",
+            "latitude": "48.5", "longitude": "14.3",
+            "men_image": men, "women_image": women,
+        })
+        self.assertEqual(resp.status_code, 302)
+        kwargs = mock_table.upsert_label.call_args.kwargs
+        self.assertEqual(kwargs["latitude"], 48.5)
+        self.assertEqual(kwargs["longitude"], 14.3)
+        mock_resolve.assert_not_called()
+
+    @patch("gallery.views.AzureTableManager")
+    def test_upload_get_renders_picker_with_key(self, mock_table_cls):
+        mock_table_cls.return_value = MagicMock()
+        with patch.dict(os.environ, {"MAPY_API_KEY": "testkey"}):
+            resp = self.client.get("/upload/")
+        self.assertIn('id="location-map"', resp.content.decode())
+
+
+class EditLabelViewTest(TestCase):
+    def setUp(self):
+        from django.contrib.auth.models import User
+        self.user = User.objects.create_superuser("admin", "a@b.c", "pw")
+        self.client.force_login(self.user)
+        self.pk = "abc123"
+
+    @patch("gallery.views.resolve_coordinates")
+    @patch("gallery.views.AzureBlobManager")
+    @patch("gallery.views.AzureTableManager")
+    def test_edit_manual_coords_win(self, mock_table_cls, mock_blob_cls, mock_resolve):
+        mock_table = MagicMock()
+        mock_table_cls.return_value = mock_table
+        mock_blob_cls.return_value = MagicMock()
+        mock_blob_cls.get_blob_base_url.return_value = "https://blob/"
+        mock_resolve.return_value = (10.0, 20.0)
+        mock_table.get_label.return_value = {
+            "RowKey": self.pk, "Place": "Cafe", "Description": "d",
+            "MenImageUrl": "m.jpg", "WomenImageUrl": "w.jpg",
+            "Country": "", "City": "", "NumVoters": 0, "AvgVote": 0,
+            "Created": "2024", "Latitude": "", "Longitude": "",
+        }
+        resp = self.client.post(f"/pair/{self.pk}/edit/", {
+            "place": "Cafe", "description": "d", "country": "", "city": "",
+            "latitude": "49.1", "longitude": "16.6",
+        })
+        self.assertEqual(resp.status_code, 302)
+        kwargs = mock_table.upsert_label.call_args.kwargs
+        self.assertEqual(kwargs["latitude"], 49.1)
+        self.assertEqual(kwargs["longitude"], 16.6)
+        mock_resolve.assert_not_called()
+
+    @patch("gallery.views.AzureBlobManager")
+    @patch("gallery.views.AzureTableManager")
+    def test_edit_get_renders_picker(self, mock_table_cls, mock_blob_cls):
+        mock_table = MagicMock()
+        mock_table_cls.return_value = mock_table
+        mock_blob_cls.get_blob_base_url.return_value = "https://blob/"
+        mock_table.get_label.return_value = {
+            "RowKey": self.pk, "Place": "Cafe", "MenImageUrl": "m.jpg",
+            "WomenImageUrl": "w.jpg", "Latitude": 50.0, "Longitude": 14.0,
+        }
+        with patch.dict(os.environ, {"MAPY_API_KEY": "testkey"}):
+            resp = self.client.get(f"/pair/{self.pk}/edit/")
+        self.assertIn('id="location-map"', resp.content.decode())
+
 
 from django.core.management import call_command
 from io import StringIO as _StringIO
@@ -491,6 +566,15 @@ class SignpairListMapRenderTest(TestCase):
         # Men has a thumbnail -> use it; women has none -> fall back to original.
         self.assertIn("https://blob/m_thumb.webp", html)
         self.assertIn("https://blob/w.jpg", html)
+
+    def test_card_view_on_map_links_to_mapy(self):
+        labels = [{"RowKey": "id1", "Place": "Cafe", "City": "",
+                   "MenImageUrl": "m.jpg", "WomenImageUrl": "w.jpg",
+                   "Latitude": 50.08, "Longitude": 14.42}]
+        resp = self._get(labels, "testkey")
+        html = resp.content.decode()
+        self.assertIn("mapy.com/fnc/v1/showmap?center=14.42,50.08", html)
+        self.assertNotIn("maps.google.com", html)
 
 
 from gallery.services.images import make_thumbnail

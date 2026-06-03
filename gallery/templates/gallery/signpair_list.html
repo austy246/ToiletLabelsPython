@@ -327,7 +327,7 @@
         <div class="flex items-center justify-between mt-auto">
           <div class="flex items-center gap-2">
             {% if pair.Latitude and pair.Longitude %}
-            <a href="https://maps.google.com/?q={{ pair.Latitude }},{{ pair.Longitude }}" target="_blank" rel="noopener" class="location-badge hover:bg-blue-50 hover:text-blue-600 transition-colors">
+            <a href="https://mapy.com/fnc/v1/showmap?center={{ pair.Longitude }},{{ pair.Latitude }}&zoom=17&marker=true" target="_blank" rel="noopener" class="location-badge hover:bg-blue-50 hover:text-blue-600 transition-colors">
               <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
               </svg>

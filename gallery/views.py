@@ -9,6 +9,18 @@ import uuid
 import os
 
 
+def _manual_coords(request):
+    """Return (lat, lon) from POSTed latitude/longitude fields, or None."""
+    lat = request.POST.get('latitude', '').strip()
+    lon = request.POST.get('longitude', '').strip()
+    if not lat or not lon:
+        return None
+    try:
+        return (float(lat), float(lon))
+    except ValueError:
+        return None
+
+
 def _make_and_upload_thumb(blob_manager, image_bytes, original_filename):
     """Generate a WebP thumbnail, upload it, return its blob filename ('' on failure)."""
     if not image_bytes:
@@ -49,9 +61,13 @@ def upload_label(request):
         men_bytes = men_image.read()
         women_bytes = women_image.read()
         label_id = str(uuid.uuid4())
-        # Resolve coordinates: EXIF(men) -> EXIF(women) -> geocode.
-        coords = resolve_coordinates(men_bytes, women_bytes, place, city, country)
-        latitude, longitude = coords if coords else (None, None)
+        # Coordinates: manual map pick wins; else EXIF(men) -> EXIF(women) -> geocode.
+        manual = _manual_coords(request)
+        if manual:
+            latitude, longitude = manual
+        else:
+            coords = resolve_coordinates(men_bytes, women_bytes, place, city, country)
+            latitude, longitude = coords if coords else (None, None)
         # Upload images to Azure Blob Storage
         import os
         men_ext = os.path.splitext(men_image.name)[1]
@@ -80,7 +96,9 @@ def upload_label(request):
             women_thumb_url=women_thumb,
         )
         return redirect(reverse('gallery:signpair_list'))
-    return render(request, 'gallery/upload_label.html')
+    return render(request, 'gallery/upload_label.html', {
+        'MAPY_API_KEY': os.environ.get('MAPY_API_KEY', ''),
+    })
 
 
 def edit_label(request, pk):
@@ -122,9 +140,12 @@ def edit_label(request, pk):
             women_filename = f"{pk}_women{women_ext}"
             blob_manager.upload_image(women_bytes, 'toiletlabels', women_filename)
             women_thumb = _make_and_upload_thumb(blob_manager, women_bytes, women_filename)
-        # Resolve coordinates: recompute from new photo(s) if any were uploaded;
-        # otherwise keep existing coords, falling back to geocode when missing.
-        if men_bytes or women_bytes:
+        # Coordinates: manual map pick wins; else recompute from new photo(s) if any
+        # were uploaded; otherwise keep existing coords, falling back to geocode.
+        manual = _manual_coords(request)
+        if manual:
+            latitude, longitude = manual
+        elif men_bytes or women_bytes:
             coords = resolve_coordinates(men_bytes, women_bytes, place, city, country)
             latitude, longitude = coords if coords else (None, None)
         else:
@@ -155,6 +176,9 @@ def edit_label(request, pk):
     return render(request, 'gallery/edit_label.html', {
         'pair': pair,
         'AZURE_BLOB_BASE_URL': AzureBlobManager.get_blob_base_url(),
+        'MAPY_API_KEY': os.environ.get('MAPY_API_KEY', ''),
+        'init_lat': pair.get('Latitude', ''),
+        'init_lon': pair.get('Longitude', ''),
     })
 
 def _build_map_points(pairs, base_url):
