@@ -341,3 +341,37 @@ class SignpairListMapRenderTest(TestCase):
                    "Place": "Cafe", "City": "", "MenImageUrl": "", "WomenImageUrl": ""}]
         resp = self._get(labels, "")
         self.assertNotIn('id="map"', resp.content.decode())
+
+
+from gallery.services.images import make_thumbnail
+
+
+class MakeThumbnailTest(TestCase):
+    def _jpeg_bytes(self, w, h):
+        buf = BytesIO()
+        Image.new("RGB", (w, h), (120, 80, 200)).save(buf, format="JPEG", quality=95)
+        return buf.getvalue()
+
+    def test_produces_webp_within_max_size(self):
+        original = self._jpeg_bytes(1000, 800)
+        thumb = make_thumbnail(original, max_size=400)
+        img = Image.open(BytesIO(thumb))
+        self.assertEqual(img.format, "WEBP")
+        self.assertLessEqual(max(img.size), 400)
+        # aspect ratio preserved (1000:800 = 1.25)
+        self.assertAlmostEqual(img.size[0] / img.size[1], 1.25, places=1)
+        self.assertLess(len(thumb), len(original))
+
+    def test_does_not_upscale_small_image(self):
+        original = self._jpeg_bytes(120, 90)
+        thumb = make_thumbnail(original, max_size=400)
+        img = Image.open(BytesIO(thumb))
+        self.assertEqual(img.size, (120, 90))
+
+    def test_handles_rgba_png(self):
+        buf = BytesIO()
+        Image.new("RGBA", (600, 600), (10, 20, 30, 128)).save(buf, format="PNG")
+        thumb = make_thumbnail(buf.getvalue(), max_size=400)
+        img = Image.open(BytesIO(thumb))
+        self.assertEqual(img.format, "WEBP")
+        self.assertLessEqual(max(img.size), 400)
