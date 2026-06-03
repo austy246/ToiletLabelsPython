@@ -343,6 +343,56 @@ class BackfillGeoCommandTest(TestCase):
         mock_table.upsert_label.assert_not_called()
 
 
+@patch.dict(os.environ, {"AZURE_STORAGE_CONNECTION_STRING": "fake-connection-string"})
+class BackfillThumbnailsCommandTest(TestCase):
+    @patch("gallery.management.commands.backfill_thumbnails.make_thumbnail")
+    @patch("gallery.management.commands.backfill_thumbnails.AzureBlobManager")
+    @patch("gallery.management.commands.backfill_thumbnails.AzureTableManager")
+    def test_generates_missing_thumbnails(self, mock_table_cls, mock_blob_cls, mock_thumb):
+        mock_table = MagicMock()
+        mock_table_cls.return_value = mock_table
+        mock_blob = MagicMock()
+        mock_blob_cls.return_value = mock_blob
+        mock_blob.download_image.return_value = b"orig"
+        mock_thumb.return_value = b"webp"
+        mock_table.list_labels.return_value = [
+            {"RowKey": "id1", "MenImageUrl": "id1_men.jpg", "WomenImageUrl": "id1_women.jpg",
+             "MenThumbUrl": "", "WomenThumbUrl": "", "Place": "Cafe", "City": "", "Country": "",
+             "Description": "d", "NumVoters": 0, "AvgVote": 0, "Created": "2024",
+             "Latitude": 50.0, "Longitude": 14.0},
+            {"RowKey": "id2", "MenImageUrl": "id2_men.jpg", "WomenImageUrl": "id2_women.jpg",
+             "MenThumbUrl": "id2_men_thumb.webp", "WomenThumbUrl": "id2_women_thumb.webp"},
+        ]
+        call_command("backfill_thumbnails", stdout=_StringIO())
+        self.assertEqual(mock_table.upsert_label.call_count, 1)
+        kwargs = mock_table.upsert_label.call_args.kwargs
+        self.assertEqual(kwargs["label_id"], "id1")
+        self.assertEqual(kwargs["men_thumb_url"], "id1_men_thumb.webp")
+        self.assertEqual(kwargs["women_thumb_url"], "id1_women_thumb.webp")
+        self.assertEqual(kwargs["created"], "2024")
+        self.assertEqual(kwargs["latitude"], 50.0)
+        self.assertEqual(mock_blob.upload_image.call_count, 2)
+        for call in mock_blob.upload_image.call_args_list:
+            self.assertEqual(call.kwargs.get("content_type"), "image/webp")
+
+    @patch("gallery.management.commands.backfill_thumbnails.make_thumbnail")
+    @patch("gallery.management.commands.backfill_thumbnails.AzureBlobManager")
+    @patch("gallery.management.commands.backfill_thumbnails.AzureTableManager")
+    def test_dry_run_does_not_save(self, mock_table_cls, mock_blob_cls, mock_thumb):
+        mock_table = MagicMock()
+        mock_table_cls.return_value = mock_table
+        mock_blob = MagicMock()
+        mock_blob_cls.return_value = mock_blob
+        mock_blob.download_image.return_value = b"orig"
+        mock_thumb.return_value = b"webp"
+        mock_table.list_labels.return_value = [
+            {"RowKey": "id1", "MenImageUrl": "id1_men.jpg", "WomenImageUrl": "id1_women.jpg",
+             "MenThumbUrl": "", "WomenThumbUrl": "", "Place": "Cafe"},
+        ]
+        call_command("backfill_thumbnails", "--dry-run", stdout=_StringIO())
+        mock_table.upsert_label.assert_not_called()
+
+
 class SignpairListMapContextTest(TestCase):
     @patch("gallery.views.AzureBlobManager")
     @patch("gallery.views.AzureTableManager")
