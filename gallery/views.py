@@ -5,6 +5,7 @@ from .services.azure_table import AzureTableManager
 from .services.azure_blob import AzureBlobManager
 from .services.geo import resolve_coordinates, geocode_place
 import uuid
+import os
 
 
 def _require_superuser(request):
@@ -129,10 +130,39 @@ def edit_label(request, pk):
         'AZURE_BLOB_BASE_URL': AzureBlobManager.get_blob_base_url(),
     })
 
+def _build_map_points(pairs, base_url):
+    """Build map marker data for labels that have valid coordinates."""
+    points = []
+    for pair in pairs:
+        lat = pair.get('Latitude', '')
+        lon = pair.get('Longitude', '')
+        if lat is None or lon is None or lat == '' or lon == '':
+            continue
+        try:
+            lat_f = float(lat)
+            lon_f = float(lon)
+        except (TypeError, ValueError):
+            continue
+        men = pair.get('MenImageUrl', '')
+        women = pair.get('WomenImageUrl', '')
+        points.append({
+            'lat': lat_f,
+            'lon': lon_f,
+            'place': pair.get('Place') or pair.get('City') or 'Untitled',
+            'men_url': (base_url + men) if men else '',
+            'women_url': (base_url + women) if women else '',
+            'row_key': pair.get('RowKey', ''),
+        })
+    return points
+
+
 def signpair_list(request):
     table_manager = AzureTableManager()
     pairs = table_manager.list_labels()
+    base_url = AzureBlobManager.get_blob_base_url()
     return render(request, 'gallery/signpair_list.html', {
         'pairs': pairs,
-        'AZURE_BLOB_BASE_URL': AzureBlobManager.get_blob_base_url(),
+        'AZURE_BLOB_BASE_URL': base_url,
+        'map_points': _build_map_points(pairs, base_url),
+        'MAPY_API_KEY': os.environ.get('MAPY_API_KEY', ''),
     })
