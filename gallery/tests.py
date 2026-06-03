@@ -258,6 +258,37 @@ class UploadLabelViewTest(TestCase):
         self.assertEqual(kwargs["longitude"], 14.2)
         mock_resolve.assert_called_once()
 
+    @patch("gallery.views.resolve_coordinates")
+    @patch("gallery.views.AzureBlobManager")
+    @patch("gallery.views.AzureTableManager")
+    def test_upload_generates_thumbnails(self, mock_table_cls, mock_blob_cls, mock_resolve):
+        from io import BytesIO as _BytesIO
+        from PIL import Image as _Image
+        mock_table = MagicMock()
+        mock_table_cls.return_value = mock_table
+        mock_blob = MagicMock()
+        mock_blob_cls.return_value = mock_blob
+        mock_resolve.return_value = None
+
+        def _jpeg(name):
+            buf = _BytesIO()
+            _Image.new("RGB", (800, 600), (10, 120, 200)).save(buf, format="JPEG")
+            return SimpleUploadedFile(name, buf.getvalue(), content_type="image/jpeg")
+
+        resp = self.client.post("/upload/", {
+            "place": "Cafe", "description": "d", "country": "", "city": "",
+            "men_image": _jpeg("m.jpg"), "women_image": _jpeg("w.jpg"),
+        })
+        self.assertEqual(resp.status_code, 302)
+        # Four uploads: men original + thumb, women original + thumb.
+        self.assertEqual(mock_blob.upload_image.call_count, 4)
+        webp_calls = [c for c in mock_blob.upload_image.call_args_list
+                      if c.kwargs.get("content_type") == "image/webp"]
+        self.assertEqual(len(webp_calls), 2)
+        kwargs = mock_table.upsert_label.call_args.kwargs
+        self.assertTrue(kwargs["men_thumb_url"].endswith("_men_thumb.webp"))
+        self.assertTrue(kwargs["women_thumb_url"].endswith("_women_thumb.webp"))
+
 
 from django.core.management import call_command
 from io import StringIO as _StringIO
@@ -353,6 +384,24 @@ class SignpairListMapContextTest(TestCase):
         self.assertEqual(points[0]["place"], "Berlin")
         self.assertEqual(points[0]["men_url"], "")
 
+    @patch("gallery.views.AzureBlobManager")
+    @patch("gallery.views.AzureTableManager")
+    def test_map_points_prefer_thumbnail(self, mock_table_cls, mock_blob_cls):
+        mock_table = MagicMock()
+        mock_table_cls.return_value = mock_table
+        mock_blob_cls.get_blob_base_url.return_value = "https://blob/"
+        mock_table.list_labels.return_value = [
+            {"RowKey": "id1", "Latitude": 50.1, "Longitude": 14.2,
+             "Place": "Cafe", "City": "",
+             "MenImageUrl": "m.jpg", "WomenImageUrl": "w.jpg",
+             "MenThumbUrl": "m_thumb.webp", "WomenThumbUrl": "w_thumb.webp"},
+        ]
+        with patch.dict(os.environ, {"MAPY_API_KEY": "k"}):
+            resp = self.client.get("/")
+        point = resp.context["map_points"][0]
+        self.assertEqual(point["men_url"], "https://blob/m_thumb.webp")
+        self.assertEqual(point["women_url"], "https://blob/w_thumb.webp")
+
 
 class SignpairListMapRenderTest(TestCase):
     @patch("gallery.views.AzureBlobManager")
@@ -382,6 +431,16 @@ class SignpairListMapRenderTest(TestCase):
                    "Place": "Cafe", "City": "", "MenImageUrl": "", "WomenImageUrl": ""}]
         resp = self._get(labels, "")
         self.assertNotIn('id="map"', resp.content.decode())
+
+    def test_card_uses_thumbnail_with_fallback(self):
+        labels = [{"RowKey": "id1", "Place": "Cafe", "City": "",
+                   "MenImageUrl": "m.jpg", "WomenImageUrl": "w.jpg",
+                   "MenThumbUrl": "m_thumb.webp", "WomenThumbUrl": ""}]
+        resp = self._get(labels, "testkey")
+        html = resp.content.decode()
+        # Men has a thumbnail -> use it; women has none -> fall back to original.
+        self.assertIn("https://blob/m_thumb.webp", html)
+        self.assertIn("https://blob/w.jpg", html)
 
 
 from gallery.services.images import make_thumbnail

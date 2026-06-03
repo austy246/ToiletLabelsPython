@@ -4,8 +4,24 @@ from django.urls import reverse
 from .services.azure_table import AzureTableManager
 from .services.azure_blob import AzureBlobManager
 from .services.geo import resolve_coordinates, geocode_place
+from .services.images import make_thumbnail, THUMB_CONTENT_TYPE
 import uuid
 import os
+
+
+def _make_and_upload_thumb(blob_manager, image_bytes, original_filename):
+    """Generate a WebP thumbnail, upload it, return its blob filename ('' on failure)."""
+    if not image_bytes:
+        return ''
+    try:
+        thumb_bytes = make_thumbnail(image_bytes)
+    except Exception:
+        return ''
+    base, _ = os.path.splitext(original_filename)
+    thumb_filename = f"{base}_thumb.webp"
+    blob_manager.upload_image(thumb_bytes, 'toiletlabels', thumb_filename,
+                              content_type=THUMB_CONTENT_TYPE)
+    return thumb_filename
 
 
 def _require_superuser(request):
@@ -44,6 +60,9 @@ def upload_label(request):
         women_filename = f"{label_id}_women{women_ext}"
         blob_manager.upload_image(men_bytes, 'toiletlabels', men_filename)
         blob_manager.upload_image(women_bytes, 'toiletlabels', women_filename)
+        # Generate and upload WebP thumbnails
+        men_thumb = _make_and_upload_thumb(blob_manager, men_bytes, men_filename)
+        women_thumb = _make_and_upload_thumb(blob_manager, women_bytes, women_filename)
         # Store only the filenames in Azure Table
         table_manager.upsert_label(
             label_id=label_id,
@@ -57,6 +76,8 @@ def upload_label(request):
             city=city,
             latitude=latitude,
             longitude=longitude,
+            men_thumb_url=men_thumb,
+            women_thumb_url=women_thumb,
         )
         return redirect(reverse('gallery:signpair_list'))
     return render(request, 'gallery/upload_label.html')
@@ -81,6 +102,8 @@ def edit_label(request, pk):
         women_image = request.FILES.get('women_image')
         men_filename = pair.get('MenImageUrl', '')
         women_filename = pair.get('WomenImageUrl', '')
+        men_thumb = pair.get('MenThumbUrl', '')
+        women_thumb = pair.get('WomenThumbUrl', '')
         men_bytes = None
         women_bytes = None
         # Handle men image upload if provided
@@ -90,6 +113,7 @@ def edit_label(request, pk):
             men_ext = os.path.splitext(men_image.name)[1]
             men_filename = f"{pk}_men{men_ext}"
             blob_manager.upload_image(men_bytes, 'toiletlabels', men_filename)
+            men_thumb = _make_and_upload_thumb(blob_manager, men_bytes, men_filename)
         # Handle women image upload if provided
         if women_image:
             import os
@@ -97,6 +121,7 @@ def edit_label(request, pk):
             women_ext = os.path.splitext(women_image.name)[1]
             women_filename = f"{pk}_women{women_ext}"
             blob_manager.upload_image(women_bytes, 'toiletlabels', women_filename)
+            women_thumb = _make_and_upload_thumb(blob_manager, women_bytes, women_filename)
         # Resolve coordinates: recompute from new photo(s) if any were uploaded;
         # otherwise keep existing coords, falling back to geocode when missing.
         if men_bytes or women_bytes:
@@ -123,6 +148,8 @@ def edit_label(request, pk):
             created=pair.get('Created'),
             latitude=latitude,
             longitude=longitude,
+            men_thumb_url=men_thumb,
+            women_thumb_url=women_thumb,
         )
         return redirect(reverse('gallery:signpair_list'))
     return render(request, 'gallery/edit_label.html', {
@@ -143,8 +170,8 @@ def _build_map_points(pairs, base_url):
             lon_f = float(lon)
         except (TypeError, ValueError):
             continue
-        men = pair.get('MenImageUrl', '')
-        women = pair.get('WomenImageUrl', '')
+        men = pair.get('MenThumbUrl') or pair.get('MenImageUrl', '')
+        women = pair.get('WomenThumbUrl') or pair.get('WomenImageUrl', '')
         points.append({
             'lat': lat_f,
             'lon': lon_f,

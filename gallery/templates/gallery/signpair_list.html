@@ -249,7 +249,7 @@
         <div class="sign-wrapper sign-wrapper-men">
           <div class="sign-container">
             {% if pair.MenImageUrl %}
-              <img src="{{ AZURE_BLOB_BASE_URL }}{{ pair.MenImageUrl }}" alt="Men's sign" class="sign-img" loading="lazy">
+              <img src="{{ AZURE_BLOB_BASE_URL }}{% firstof pair.MenThumbUrl pair.MenImageUrl %}" alt="Men's sign" class="sign-img" loading="lazy">
             {% else %}
               <div class="w-full h-full flex items-center justify-center">
                 <svg class="w-12 h-12 text-slate-300" fill="currentColor" viewBox="0 0 24 24">
@@ -263,7 +263,7 @@
         <div class="sign-wrapper sign-wrapper-women">
           <div class="sign-container">
             {% if pair.WomenImageUrl %}
-              <img src="{{ AZURE_BLOB_BASE_URL }}{{ pair.WomenImageUrl }}" alt="Women's sign" class="sign-img" loading="lazy">
+              <img src="{{ AZURE_BLOB_BASE_URL }}{% firstof pair.WomenThumbUrl pair.WomenImageUrl %}" alt="Women's sign" class="sign-img" loading="lazy">
             {% else %}
               <div class="w-full h-full flex items-center justify-center">
                 <svg class="w-12 h-12 text-slate-300" fill="currentColor" viewBox="0 0 24 24">
