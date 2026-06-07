@@ -1,14 +1,16 @@
 <script>
-// Hardened fix for Chrome's ERR_UPLOAD_FILE_CHANGED on mobile.
-// When a photo is captured straight from the camera, the OS may still be
-// writing the file when the form is submitted; Chrome then detects the file
-// changed on disk and aborts the upload. We intercept submit, read each
-// selected file fully into memory and replace the input with an in-memory
-// copy, so the actual submission no longer depends on the on-disk file.
-// Doing this at submit time (and awaiting it) closes the race where the user
-// taps submit before an async read has finished.
+// Mobile-friendly file upload handling.
+//
+// 1) Fix for Chrome's ERR_UPLOAD_FILE_CHANGED: when a photo is captured
+//    straight from the camera, the OS may still be writing the file when the
+//    form is submitted; Chrome then detects the file changed on disk and
+//    aborts. As soon as a file is picked we read it fully into memory and
+//    replace the input with an in-memory copy, so submission no longer depends
+//    on the on-disk file.
+// 2) While that read is in progress the submit button is disabled, so the user
+//    cannot submit before the file is safely buffered.
 (function () {
-    function rematerialize(input) {
+    function snapshot(input) {
         if (!input.files || input.files.length === 0) return Promise.resolve();
         if (typeof DataTransfer === 'undefined' || !input.files[0].arrayBuffer) {
             return Promise.resolve();
@@ -33,17 +35,25 @@
     document.querySelectorAll('form').forEach(function (form) {
         var fileInputs = form.querySelectorAll('input[type="file"]');
         if (!fileInputs.length) return;
-        var rematerialized = false;
-        form.addEventListener('submit', function (e) {
-            // Second pass (after files are in memory): submit normally.
-            if (rematerialized) return;
-            e.preventDefault();
-            var submitBtns = form.querySelectorAll('[type="submit"]');
-            submitBtns.forEach(function (b) { b.disabled = true; });
-            Promise.all(Array.prototype.map.call(fileInputs, rematerialize)).then(function () {
-                rematerialized = true;
-                submitBtns.forEach(function (b) { b.disabled = false; });
-                if (form.requestSubmit) { form.requestSubmit(); } else { form.submit(); }
+        var submitBtns = form.querySelectorAll('[type="submit"]');
+        var pending = 0;
+
+        function setBusy(busy) {
+            submitBtns.forEach(function (b) {
+                b.disabled = busy;
+                b.classList.toggle('opacity-50', busy);
+                b.classList.toggle('cursor-not-allowed', busy);
+            });
+        }
+
+        fileInputs.forEach(function (input) {
+            input.addEventListener('change', function () {
+                pending++;
+                setBusy(true);
+                snapshot(input).then(function () {
+                    pending--;
+                    if (pending <= 0) { pending = 0; setBusy(false); }
+                });
             });
         });
     });
