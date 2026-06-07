@@ -7,7 +7,10 @@
   <div id="location-map" class="w-full rounded border" style="height:320px"></div>
   <div class="flex items-center justify-between mt-2 text-sm text-gray-600">
     <span id="location-readout">{% if init_lat and init_lon %}{{ init_lat }}, {{ init_lon }}{% else %}Nevybráno{% endif %}</span>
-    <button type="button" id="location-clear" class="text-blue-600 hover:underline">Vymazat</button>
+    <span class="flex gap-3">
+      <button type="button" id="location-here" class="text-blue-600 hover:underline">Moje poloha</button>
+      <button type="button" id="location-clear" class="text-blue-600 hover:underline">Vymazat</button>
+    </span>
   </div>
   <input type="hidden" name="latitude" id="id_latitude" value="{% if init_lat and init_lon %}{{ init_lat }}{% endif %}">
   <input type="hidden" name="longitude" id="id_longitude" value="{% if init_lat and init_lon %}{{ init_lon }}{% endif %}">
@@ -69,6 +72,23 @@
   }
 
   map.on('click', function (e) { setPoint(e.latlng); });
+
+  // "My location" button: ask the browser for the device location. Reliable
+  // even when the photo carries no EXIF GPS (Android strips it from picked
+  // images), unlike the server-side EXIF path.
+  var hereBtn = document.getElementById('location-here');
+  if (hereBtn && navigator.geolocation) {
+    hereBtn.addEventListener('click', function () {
+      readout.textContent = 'Zjišťuji polohu…';
+      navigator.geolocation.getCurrentPosition(function (pos) {
+        centerOn(round6(pos.coords.latitude), round6(pos.coords.longitude));
+      }, function () {
+        readout.textContent = 'Polohu se nepodařilo zjistit.';
+      }, { enableHighAccuracy: true, timeout: 10000 });
+    });
+  } else if (hereBtn) {
+    hereBtn.style.display = 'none';
+  }
 
   document.getElementById('location-clear').addEventListener('click', function () {
     if (marker) { map.removeLayer(marker); marker = null; }

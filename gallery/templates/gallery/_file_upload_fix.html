@@ -1,16 +1,20 @@
 <script>
-// Fix for Chrome's ERR_UPLOAD_FILE_CHANGED on mobile.
-// When a photo is taken straight from the camera, the OS may still be writing
-// the file when the form is submitted; Chrome then detects the file changed on
-// disk and aborts the upload. We defend against this by reading each selected
-// file into memory as soon as it is picked and replacing the input's file with
-// a fresh in-memory copy, so submission no longer depends on the disk file.
+// Hardened fix for Chrome's ERR_UPLOAD_FILE_CHANGED on mobile.
+// When a photo is captured straight from the camera, the OS may still be
+// writing the file when the form is submitted; Chrome then detects the file
+// changed on disk and aborts the upload. We intercept submit, read each
+// selected file fully into memory and replace the input with an in-memory
+// copy, so the actual submission no longer depends on the on-disk file.
+// Doing this at submit time (and awaiting it) closes the race where the user
+// taps submit before an async read has finished.
 (function () {
-    function snapshotFiles(input) {
-        if (!input.files || input.files.length === 0) return;
-        if (typeof DataTransfer === 'undefined' || !input.files[0].arrayBuffer) return;
+    function rematerialize(input) {
+        if (!input.files || input.files.length === 0) return Promise.resolve();
+        if (typeof DataTransfer === 'undefined' || !input.files[0].arrayBuffer) {
+            return Promise.resolve();
+        }
         var originals = Array.prototype.slice.call(input.files);
-        Promise.all(originals.map(function (file) {
+        return Promise.all(originals.map(function (file) {
             return file.arrayBuffer().then(function (buf) {
                 return new File([buf], file.name, {
                     type: file.type,
@@ -26,8 +30,22 @@
         });
     }
 
-    document.querySelectorAll('input[type="file"]').forEach(function (input) {
-        input.addEventListener('change', function () { snapshotFiles(input); });
+    document.querySelectorAll('form').forEach(function (form) {
+        var fileInputs = form.querySelectorAll('input[type="file"]');
+        if (!fileInputs.length) return;
+        var rematerialized = false;
+        form.addEventListener('submit', function (e) {
+            // Second pass (after files are in memory): submit normally.
+            if (rematerialized) return;
+            e.preventDefault();
+            var submitBtns = form.querySelectorAll('[type="submit"]');
+            submitBtns.forEach(function (b) { b.disabled = true; });
+            Promise.all(Array.prototype.map.call(fileInputs, rematerialize)).then(function () {
+                rematerialized = true;
+                submitBtns.forEach(function (b) { b.disabled = false; });
+                if (form.requestSubmit) { form.requestSubmit(); } else { form.submit(); }
+            });
+        });
     });
 })();
 </script>
