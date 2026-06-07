@@ -1,0 +1,33 @@
+<script>
+// Fix for Chrome's ERR_UPLOAD_FILE_CHANGED on mobile.
+// When a photo is taken straight from the camera, the OS may still be writing
+// the file when the form is submitted; Chrome then detects the file changed on
+// disk and aborts the upload. We defend against this by reading each selected
+// file into memory as soon as it is picked and replacing the input's file with
+// a fresh in-memory copy, so submission no longer depends on the disk file.
+(function () {
+    function snapshotFiles(input) {
+        if (!input.files || input.files.length === 0) return;
+        if (typeof DataTransfer === 'undefined' || !input.files[0].arrayBuffer) return;
+        var originals = Array.prototype.slice.call(input.files);
+        Promise.all(originals.map(function (file) {
+            return file.arrayBuffer().then(function (buf) {
+                return new File([buf], file.name, {
+                    type: file.type,
+                    lastModified: file.lastModified,
+                });
+            });
+        })).then(function (copies) {
+            var dt = new DataTransfer();
+            copies.forEach(function (f) { dt.items.add(f); });
+            input.files = dt.files;
+        }).catch(function () {
+            // Keep the original selection if anything goes wrong.
+        });
+    }
+
+    document.querySelectorAll('input[type="file"]').forEach(function (input) {
+        input.addEventListener('change', function () { snapshotFiles(input); });
+    });
+})();
+</script>
