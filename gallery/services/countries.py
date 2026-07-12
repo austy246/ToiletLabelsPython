@@ -32,6 +32,34 @@ COUNTRIES = [
 ]
 
 
+# ISO 3166-1 alpha-2 code per canonical name, used to build flag image URLs.
+COUNTRY_ISO = {
+    "Česko": "cz",
+    "Slovensko": "sk",
+    "Rakousko": "at",
+    "Německo": "de",
+    "Polsko": "pl",
+    "Belgie": "be",
+    "Francie": "fr",
+    "Chorvatsko": "hr",
+    "Itálie": "it",
+    "Maďarsko": "hu",
+    "Nizozemsko": "nl",
+    "Portugalsko": "pt",
+    "Řecko": "gr",
+    "Slovinsko": "si",
+    "Spojené království": "gb",
+    "Španělsko": "es",
+    "Švédsko": "se",
+    "Švýcarsko": "ch",
+}
+
+
+def country_code(value):
+    """Return the ISO alpha-2 code for a country value, or '' if unknown."""
+    return COUNTRY_ISO.get(normalize_country(value), "")
+
+
 def _fold(value):
     """Lower-case and strip accents for accent/case-insensitive matching."""
     text = unicodedata.normalize("NFKD", value.strip().lower())
