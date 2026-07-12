@@ -5,6 +5,10 @@ Pure module, no Django/Azure dependencies.
 from io import BytesIO
 
 from PIL import Image
+import pillow_heif
+
+# Register the HEIF/HEIC opener so Pillow can decode iPhone photos.
+pillow_heif.register_heif_opener()
 
 THUMB_CONTENT_TYPE = "image/webp"
 
