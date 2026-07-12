@@ -24,7 +24,12 @@
         </div>
         <div class="mb-4">
             <label for="country" class="block text-gray-700 text-sm font-bold mb-2">Country (optional):</label>
-            <input type="text" name="country" id="country" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+            <select name="country" id="country" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline bg-white">
+                <option value="">— vyber zemi —</option>
+                {% for c in countries %}
+                <option value="{{ c }}">{{ c }}</option>
+                {% endfor %}
+            </select>
         </div>
         <div class="mb-4">
             <label for="city" class="block text-gray-700 text-sm font-bold mb-2">City (optional):</label>

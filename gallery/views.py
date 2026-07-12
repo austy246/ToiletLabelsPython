@@ -5,6 +5,7 @@ from .services.azure_table import AzureTableManager
 from .services.azure_blob import AzureBlobManager
 from .services.geo import resolve_coordinates, geocode_place
 from .services.images import make_thumbnail, THUMB_CONTENT_TYPE
+from .services.countries import COUNTRIES, normalize_country
 import uuid
 import os
 
@@ -67,7 +68,7 @@ def upload_label(request):
     if request.method == 'POST':
         place = request.POST.get('place', '')
         description = request.POST.get('description', '')
-        country = request.POST.get('country', '')
+        country = normalize_country(request.POST.get('country', ''))
         city = request.POST.get('city', '')
         men_image = request.FILES['men_image']
         women_image = request.FILES['women_image']
@@ -112,6 +113,7 @@ def upload_label(request):
     return render(request, 'gallery/upload_label.html', {
         'MAPY_API_KEY': os.environ.get('MAPY_API_KEY', ''),
         'location_picker_config': _picker_config(),
+        'countries': COUNTRIES,
     })
 
 
@@ -128,7 +130,7 @@ def edit_label(request, pk):
     if request.method == 'POST':
         place = request.POST.get('place', '')
         description = request.POST.get('description', '')
-        country = request.POST.get('country', '')
+        country = normalize_country(request.POST.get('country', ''))
         city = request.POST.get('city', '')
         men_image = request.FILES.get('men_image')
         women_image = request.FILES.get('women_image')
@@ -192,6 +194,7 @@ def edit_label(request, pk):
         'init_lat': pair.get('Latitude', ''),
         'init_lon': pair.get('Longitude', ''),
         'location_picker_config': _picker_config(pair.get('Latitude'), pair.get('Longitude')),
+        'countries': COUNTRIES,
     })
 
 def _build_map_points(pairs, base_url):
