@@ -1,8 +1,9 @@
 name: Deploy to VPS
 
-# Manual only until the cutover (docs/migrace-vps.md). Azure Web App keeps deploying on push to main
-# via azure-webapp.yml; after the cutover switch this to `push: branches: [main]` and delete that one.
+# Production deploy (the Azure Web App was removed, see docs/migrace-vps.md).
 on:
+  push:
+    branches: [main]
   workflow_dispatch: {}
 
 concurrency:

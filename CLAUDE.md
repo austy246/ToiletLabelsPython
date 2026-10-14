@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Django 5.2 web app displaying a gallery of paired toilet sign images (men/women). Uses Azure Blob Storage for images and Azure Table Storage for metadata (no Django models for domain data). Deployed to Azure Web App via GitHub Actions.
+Django 5.2 web app displaying a gallery of paired toilet sign images (men/women). Uses Azure Blob Storage for images and Azure Table Storage for metadata (no Django models for domain data). Deployed to the shared OVH VPS via GitHub Actions (see Deployment and [docs/migrace-vps.md](docs/migrace-vps.md)).
 
 ## Commands
 
@@ -73,16 +73,13 @@ Templates live in `gallery/templates/gallery/`. Base template uses Tailwind CSS 
 
 ## Deployment
 
-### Azure Web App (production until the cutover)
-
-GitHub Actions ([azure-webapp.yml](.github/workflows/azure-webapp.yml)) deploys on push to `main`. Azure builds with Oryx. [startup.sh](startup.sh) runs migrations, creates superuser from env vars, and starts Gunicorn on port 8000.
-
 ### VPS (shared with manarozeniny and az-portal-python)
 
-The app is being migrated to the shared OVH VPS; state, cutover and rollback are in [docs/migrace-vps.md](docs/migrace-vps.md).
+Production runs on the shared OVH VPS; setup state and operations are in [docs/migrace-vps.md](docs/migrace-vps.md).
+The former Azure Web App was deleted on 14 Oct 2026. Only the storage account `toiletlabelsstorage` (resource group `ToiletLabels`) remains and holds all data, so never delete that group. [startup.sh](startup.sh) is a leftover of the Azure deployment (the container uses [docker-entrypoint.sh](docker-entrypoint.sh)).
 
 - URL `https://toiletlabels.austy.cz`, server `57.131.165.173` (Debian), project dir `/srv/toiletlabels`, compose project `toiletlabels`.
-- [deploy-vps.yml](.github/workflows/deploy-vps.yml): tests, builds the [Dockerfile](Dockerfile), pushes to `ghcr.io/austy246/toiletlabels-app`, then over SSH pulls and starts [deploy/docker-compose.yml](deploy/docker-compose.yml). **Manual only (`workflow_dispatch`) until the cutover**; afterwards switch it to `push` on `main` and remove azure-webapp.yml.
+- [deploy-vps.yml](.github/workflows/deploy-vps.yml): tests, builds the [Dockerfile](Dockerfile), pushes to `ghcr.io/austy246/toiletlabels-app`, then over SSH pulls and starts [deploy/docker-compose.yml](deploy/docker-compose.yml). It runs on every push to `main` (and manually via `workflow_dispatch`), so pushing to `main` deploys.
 - TLS/routing: the shared Caddy of `manarozeniny` (compose project `deploy`) imports `/srv/infra/sites/*.caddy`. The workflow renders [deploy/toiletlabels.caddy](deploy/toiletlabels.caddy), runs `caddy validate`, then `caddy reload`, and rolls back on an invalid config. The app joins the external Docker network `web` with alias `toiletlabels-app`. Certificate via HTTP-01, so the DNS A record `toiletlabels` (zone `austy.cz`) must point to the VPS.
 - State: SQLite in volume `app_data` (`/data/db.sqlite3`: only the superuser and sessions, recreated from env by the entrypoint). Labels and images stay in Azure. No Postgres, no backups.
 - `deploy/.env` on the server is created once by `deploy/gen-env.sh` and merged with secrets by `deploy/update-env-secrets.sh` (allow-listed keys, never in argv).

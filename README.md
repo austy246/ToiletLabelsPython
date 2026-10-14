@@ -29,13 +29,14 @@ The app will be available at http://localhost:8000
 
 ## Deployment to the VPS
 
-The app is being moved to a shared OVH VPS (`https://toiletlabels.austy.cz`) behind a shared Caddy. The manual
-workflow `Deploy to VPS` builds the Docker image and deploys it over SSH. Details, cutover and rollback:
-[docs/migrace-vps.md](docs/migrace-vps.md).
+The app runs on a shared OVH VPS (`https://toiletlabels.austy.cz`) behind a shared Caddy. The workflow
+`Deploy to VPS` runs on every push to `main`, builds the Docker image and deploys it over SSH.
+Details: [docs/migrace-vps.md](docs/migrace-vps.md).
 
-## Deployment to Azure Web App
+## Legacy: Azure Web App (removed 14 Oct 2026)
 
-The project deploys automatically to Azure Web App via GitHub Actions on push to `main`.
+The app used to run on Azure Web App and deploy via GitHub Actions. The web app is gone (the storage account with
+the data remains); the notes below are kept for history.
 
 ### Setup
 

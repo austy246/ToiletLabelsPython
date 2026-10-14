@@ -10,8 +10,9 @@ Vzor: `az-portal-python/docs/provoz-vps.md`, `docs/migrace-vps.md`, `docs/navrh-
 - **Databáze je SQLite ve volume `app_data` (`/data/db.sqlite3`).** Obsahuje jen účet superuživatele a sessions, takže
   není Postgres ani restic záloha. Superuživatele vytvoří `docker-entrypoint.sh` z `DJANGO_SUPERUSER_*`. Po přepnutí se
   musíte jednou znovu přihlásit (sessions se nekopírují).
-- Azure Web App (`azure-webapp.yml`) dál nasazuje při pushi do `main`, dokud nepřepnete provoz. VPS workflow
-  (`deploy-vps.yml`) je zatím jen ruční.
+- **Azure Web App `toiletlabels` byl 14. 10. 2026 smazán** (včetně plánu `ToiletLabelsPlan`). Ve skupině `ToiletLabels`
+  zůstal jen storage účet `toiletlabelsstorage` s daty, **ten nemazat**. Workflow `azure-webapp.yml` je odstraněný
+  a `deploy-vps.yml` nasazuje při každém pushi do `main`.
 
 ## Stav k 14. 10. 2026
 
@@ -23,7 +24,8 @@ Vzor: `az-portal-python/docs/provoz-vps.md`, `docs/migrace-vps.md`, `docs/navrh-
   certifikát. Po opravě ověřit `nslookup -type=A toiletlabels.austy.cz` (musí vrátit `57.131.165.173`) a
   `nslookup -type=AAAA toiletlabels.austy.cz` (nesmí vrátit wildcard `2a0e:acc0::d22`, jinak přidat AAAA záznam
   VPS), pak znovu spustit workflow nebo `caddy reload` v kontejneru `deploy-caddy-1`.
-- **Zbývá:** spustit **Deploy to VPS**, ověřit krok B, po osvědčení krok E.
+- **Hotovo:** první deploy proběhl, HTTPS funguje, DNS (A i AAAA `2001:41d0:701:1100::ea6c`) je v pořádku, přihlášení,
+  mapa a nahrání fotky ověřeno. Zbývá jen zvážit rotaci klíče storage účtu (krok E).
 - **Přístup na server:** `ssh -i ~/.ssh/id_rsa_austy deploy@57.131.165.173` (skupina `docker`, bez sudo);
   `debian@57.131.165.173` má sudo bez hesla (pro věci vyžadující root, např. adresář v `/srv`).
 
@@ -55,20 +57,18 @@ Jednou (hotovo, jako `debian`): `sudo mkdir -p /srv/toiletlabels && sudo chown d
 3. `curl -I https://toiletlabels.austy.cz/healthz` → 200. Přihlásit se na `/login/` superuživatelem, zkontrolovat galerii, mapu
    (`MAPY_API_KEY`), nahrání fotky (včetně HEIC z telefonu) a editaci.
 
-## C. Přepnutí
+## C. Přepnutí (hotovo)
 
-1. Pokud existují odkazy na `toiletlabels.azurewebsites.net`, nahradit je novou adresou.
-2. Azure Web App nechat běžet, dokud se nová adresa neosvědčí (oba používají stejná data v Azure, takže je to bezpečné).
+Odkazy na `toiletlabels.azurewebsites.net` je potřeba nahradit adresou `https://toiletlabels.austy.cz`.
 
-## D. Návrat
+## D. Návrat (po smazání Azure Web App už není k dispozici)
 
-Nic se nemigrovalo, takže stačí dál používat Azure Web App. Odstranění z VPS:
-`rm /srv/infra/sites/toiletlabels.caddy` + `caddy reload` v Caddy kontejneru a `docker compose down` v `/srv/toiletlabels/deploy`.
+Staré prostředí neexistuje. Při problému na VPS se opravuje VPS: logy `docker compose logs app` v
+`/srv/toiletlabels/deploy`, nebo vrácení předchozí verze přes **Run workflow** na starším commitu. Dočasné vypnutí
+webu: `rm /srv/infra/sites/toiletlabels.caddy` + `caddy reload` v Caddy kontejneru a `docker compose down` v
+`/srv/toiletlabels/deploy`. Případný návrat na Azure by znamenal znovu vytvořit Web App (viz historie gitu, `startup.sh`).
 
-## E. Po několika dnech
+## E. Zbývá
 
-1. Přepnout `deploy-vps.yml` na `on: push: branches: [main]` a smazat `azure-webapp.yml`
-   (CLAUDE.md: push do `main` pak nasazuje na VPS).
-2. Vypnout Azure Web App.
-3. Aktualizovat `CLAUDE.md` (sekce Deployment, proměnné prostředí) a `README.md`.
-4. Zvážit rotaci klíče storage účtu.
+1. Zvážit rotaci klíče storage účtu `toiletlabelsstorage` (po rotaci aktualizovat secret
+   `AZURE_STORAGE_CONNECTION_STRING` a znovu nasadit).
