@@ -31,6 +31,12 @@ ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', 'toiletlabels.azurewebsit
 # CSRF trusted origins for Azure
 CSRF_TRUSTED_ORIGINS = os.environ.get('CSRF_TRUSTED_ORIGINS', 'https://toiletlabels.azurewebsites.net').split(',')
 
+# Behind the shared Caddy on the VPS (TLS ends there) - see deploy/ and docs/migrace-vps.md
+if os.environ.get('DJANGO_BEHIND_PROXY', 'False') == 'True':
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+
 
 # Application definition
 
@@ -83,7 +89,7 @@ WSGI_APPLICATION = 'toiletlabels.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'NAME': os.environ.get('DJANGO_DB_PATH', BASE_DIR / 'db.sqlite3'),
     }
 }
 

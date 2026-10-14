@@ -67,7 +67,25 @@ Templates live in `gallery/templates/gallery/`. Base template uses Tailwind CSS 
 | `DJANGO_DEBUG` | Set to `True` for debug mode |
 | `DJANGO_ALLOWED_HOSTS` | Comma-separated hosts |
 | `CSRF_TRUSTED_ORIGINS` | Comma-separated origins |
+| `DJANGO_DB_PATH` | SQLite file path (default `db.sqlite3` in the project; `/data/db.sqlite3` in the container) |
+| `DJANGO_BEHIND_PROXY` | `True` behind the VPS Caddy: trusts `X-Forwarded-Proto`, secure cookies |
+| `DJANGO_SUPERUSER_USERNAME` / `DJANGO_SUPERUSER_PASSWORD` | Superuser created on startup if missing (default username `austy`) |
 
 ## Deployment
 
+### Azure Web App (production until the cutover)
+
 GitHub Actions ([azure-webapp.yml](.github/workflows/azure-webapp.yml)) deploys on push to `main`. Azure builds with Oryx. [startup.sh](startup.sh) runs migrations, creates superuser from env vars, and starts Gunicorn on port 8000.
+
+### VPS (shared with manarozeniny and az-portal-python)
+
+The app is being migrated to the shared OVH VPS; state, cutover and rollback are in [docs/migrace-vps.md](docs/migrace-vps.md).
+
+- URL `https://toiletlabels.austy.cz`, server `57.131.165.173` (Debian), project dir `/srv/toiletlabels`, compose project `toiletlabels`.
+- [deploy-vps.yml](.github/workflows/deploy-vps.yml): tests, builds the [Dockerfile](Dockerfile), pushes to `ghcr.io/austy246/toiletlabels-app`, then over SSH pulls and starts [deploy/docker-compose.yml](deploy/docker-compose.yml). **Manual only (`workflow_dispatch`) until the cutover**; afterwards switch it to `push` on `main` and remove azure-webapp.yml.
+- TLS/routing: the shared Caddy of `manarozeniny` (compose project `deploy`) imports `/srv/infra/sites/*.caddy`. The workflow renders [deploy/toiletlabels.caddy](deploy/toiletlabels.caddy), runs `caddy validate`, then `caddy reload`, and rolls back on an invalid config. The app joins the external Docker network `web` with alias `toiletlabels-app`. Certificate via HTTP-01, so the DNS A record `toiletlabels` (zone `austy.cz`) must point to the VPS.
+- State: SQLite in volume `app_data` (`/data/db.sqlite3`: only the superuser and sessions, recreated from env by the entrypoint). Labels and images stay in Azure. No Postgres, no backups.
+- `deploy/.env` on the server is created once by `deploy/gen-env.sh` and merged with secrets by `deploy/update-env-secrets.sh` (allow-listed keys, never in argv).
+- GitHub secrets: `SSH_HOST`, `SSH_USER`, `SSH_KEY` (dedicated key `toiletlabels-ci`, public part in `~deploy/.ssh/authorized_keys`), `APP_DOMAIN`, `AZURE_STORAGE_CONNECTION_STRING`, `MAPY_API_KEY`, `DJANGO_SUPERUSER_USERNAME`, `DJANGO_SUPERUSER_PASSWORD`. Values came from the App Service settings.
+- Server access: `ssh -i ~/.ssh/id_rsa_austy deploy@57.131.165.173` (group `docker`, no sudo) or `debian@57.131.165.173` (passwordless sudo, no docker).
+- Health endpoint: `GET /healthz`.

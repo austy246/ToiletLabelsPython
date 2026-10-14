@@ -1,0 +1,16 @@
+.git
+.github
+.claude
+.venv
+venv
+.vscode
+.playwright-mcp
+**/__pycache__
+**/*.pyc
+docs
+deploy
+tools
+.env
+**/.env
+db.sqlite3
+staticfiles

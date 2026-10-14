@@ -27,6 +27,12 @@ python manage.py runserver
 
 The app will be available at http://localhost:8000
 
+## Deployment to the VPS
+
+The app is being moved to a shared OVH VPS (`https://toiletlabels.austy.cz`) behind a shared Caddy. The manual
+workflow `Deploy to VPS` builds the Docker image and deploys it over SSH. Details, cutover and rollback:
+[docs/migrace-vps.md](docs/migrace-vps.md).
+
 ## Deployment to Azure Web App
 
 The project deploys automatically to Azure Web App via GitHub Actions on push to `main`.
