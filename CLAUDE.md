@@ -75,7 +75,7 @@ Templates live in `gallery/templates/gallery/`. Base template uses Tailwind CSS 
 
 ### VPS (shared with manarozeniny and az-portal-python)
 
-Production runs on the shared OVH VPS; setup state and operations are in [docs/migrace-vps.md](docs/migrace-vps.md).
+Production runs on the shared OVH VPS; operations (server, secrets, DNS, deleting a gallery entry) are in [docs/provoz-vps.md](docs/provoz-vps.md), the migration history in [docs/migrace-vps.md](docs/migrace-vps.md).
 The former Azure Web App was deleted on 14 Oct 2026. Only the storage account `toiletlabelsstorage` (resource group `ToiletLabels`) remains and holds all data, so never delete that group. [startup.sh](startup.sh) is a leftover of the Azure deployment (the container uses [docker-entrypoint.sh](docker-entrypoint.sh)).
 
 - URL `https://toiletlabels.austy.cz`, server `57.131.165.173` (Debian), project dir `/srv/toiletlabels`, compose project `toiletlabels`.

@@ -1,6 +1,7 @@
 # Migrace ToiletLabels na sdílený VPS: runbook
 
 Cíl: aplikace běží na stejném OVH VPS jako `manarozeniny` a `az-portal-python`, za jejich sdíleným Caddy.
+Co je skutečně nastavené a jak to udržovat: `docs/provoz-vps.md`.
 Vzor: `az-portal-python/docs/provoz-vps.md`, `docs/migrace-vps.md`, `docs/navrh-sdileny-caddy.md`.
 
 ## Co se mění a co ne
