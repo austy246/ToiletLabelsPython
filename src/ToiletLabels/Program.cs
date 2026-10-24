@@ -13,6 +13,17 @@ using ToiletLabels.Users;
 if (args.Contains("--healthcheck"))
     return await HealthCheckCommand.RunAsync();
 
+// Jen čtení: žádný bootstrapper ani seeding admina, takže je bezpečné pustit proti produkčnímu storage.
+if (args.Contains("--check-data"))
+{
+    var config = new ConfigurationBuilder()
+        .SetBasePath(AppContext.BaseDirectory)
+        .AddJsonFile("appsettings.json", optional: true)
+        .AddEnvironmentVariables()
+        .Build();
+    return await CheckDataCommand.RunAsync(config, Console.Out, CancellationToken.None);
+}
+
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorPages();
 
