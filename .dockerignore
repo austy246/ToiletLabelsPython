@@ -14,3 +14,9 @@ tools
 **/.env
 db.sqlite3
 staticfiles
+**/bin/
+**/obj/
+tests/
+.git/
+.vs/
+.claude/

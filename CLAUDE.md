@@ -26,7 +26,7 @@ Tests live in `gallery/tests.py` and run with `python manage.py test gallery`. N
 
 ## Development Workflow
 
-**Work directly on `main` — do NOT create feature branches.** Commit changes straight to `main` and push; pushing to `main` triggers the Azure deploy. (This overrides any default "branch first" behavior.)
+**Work directly on `main` — do NOT create feature branches.** Commit changes straight to `main` and push; pushing to `main` does NOT deploy any more (see Deployment). (This overrides any default "branch first" behavior.)
 
 ## Architecture
 
@@ -79,7 +79,7 @@ Production runs on the shared OVH VPS; operations (server, secrets, DNS, deletin
 The former Azure Web App was deleted on 14 Oct 2026. Only the storage account `toiletlabelsstorage` (resource group `ToiletLabels`) remains and holds all data, so never delete that group. [startup.sh](startup.sh) is a leftover of the Azure deployment (the container uses [docker-entrypoint.sh](docker-entrypoint.sh)).
 
 - URL `https://toiletlabels.austy.cz`, server `57.131.165.173` (Debian), project dir `/srv/toiletlabels`, compose project `toiletlabels`.
-- [deploy-vps.yml](.github/workflows/deploy-vps.yml): tests, builds the [Dockerfile](Dockerfile), pushes to `ghcr.io/austy246/toiletlabels-app`, then over SSH pulls and starts [deploy/docker-compose.yml](deploy/docker-compose.yml). It runs on every push to `main` (and manually via `workflow_dispatch`), so pushing to `main` deploys.
+- **The GitHub Actions deploy was disabled** (`deploy-vps.yml` deleted in the first step of the .NET rewrite): pushing to `main` no longer deploys. Production is deployed from the local machine with `deploy/deploy.ps1` (created in task 11 of the plan). The app is being rewritten to ASP.NET Core 10 per [the spec](docs/superpowers/specs/2026-10-24-dotnet-rewrite-design.md); until the cutover the running production is the last Python image deployed by the former workflow (build: [Dockerfile](Dockerfile) pushed to `ghcr.io/austy246/toiletlabels-app`, started via [deploy/docker-compose.yml](deploy/docker-compose.yml)).
 - TLS/routing: the shared Caddy of `manarozeniny` (compose project `deploy`) imports `/srv/infra/sites/*.caddy`. The workflow renders [deploy/toiletlabels.caddy](deploy/toiletlabels.caddy), runs `caddy validate`, then `caddy reload`, and rolls back on an invalid config. The app joins the external Docker network `web` with alias `toiletlabels-app`. Certificate via HTTP-01, so the DNS A record `toiletlabels` (zone `austy.cz`) must point to the VPS.
 - State: SQLite in volume `app_data` (`/data/db.sqlite3`: only the superuser and sessions, recreated from env by the entrypoint). Labels and images stay in Azure. No Postgres, no backups.
 - `deploy/.env` on the server is created once by `deploy/gen-env.sh` and merged with secrets by `deploy/update-env-secrets.sh` (allow-listed keys, never in argv).

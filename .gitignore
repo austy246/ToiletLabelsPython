@@ -180,3 +180,9 @@ cython_debug/
 
 # Playwright MCP
 .playwright-mcp/
+
+# .NET
+bin/
+obj/
+.vs/
+*.user
