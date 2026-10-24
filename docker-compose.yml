@@ -1,0 +1,41 @@
+# Lokální vývoj: aplikace + Azurite (blob 10100, tabulky 10102).
+# Tajné hodnoty se do kontejneru nepředávají celým souborem .env (ten patří Django verzi),
+# jen Mapy__ApiKey se z něj dosadí. Admin údaje jsou v nepovinném, gitignorovaném .env.local.
+name: toiletlabels
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: src/ToiletLabels/Dockerfile
+    ports:
+      - "8000:8080"
+    env_file:
+      - path: .env.local
+        required: false
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      # Well-known účet Azurite (devstoreaccount1), veřejně zdokumentovaný klíč, žádné tajemství.
+      ConnectionStrings__Storage: "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;TableEndpoint=http://azurite:10002/devstoreaccount1;"
+      Storage__PublicBlobBaseUrl: http://localhost:10100/devstoreaccount1/toiletlabels/
+      Mapy__ApiKey: ${MAPY_API_KEY:-}
+    healthcheck:
+      test: ["CMD", "dotnet", "ToiletLabels.dll", "--healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    depends_on:
+      - azurite
+
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite:3.35.0
+    command: azurite --blobHost 0.0.0.0 --tableHost 0.0.0.0 --skipApiVersionCheck --loose --location /data
+    ports:
+      - "10100:10000"
+      - "10102:10002"
+    volumes:
+      - azurite-data:/data
+
+volumes:
+  azurite-data:

@@ -27,6 +27,25 @@ python manage.py runserver
 
 The app will be available at http://localhost:8000
 
+## Local Development (.NET)
+
+The app is being rewritten in ASP.NET Core 10 (`src/ToiletLabels`, tests in `tests/ToiletLabels.Tests`). The local
+stack is the app plus Azurite (the Azure Storage emulator):
+
+```sh
+docker compose up -d --build
+```
+
+- App: http://localhost:8000 (health check: http://localhost:8000/healthz)
+- Azurite: blobs on `localhost:10100`, tables on `localhost:10102`, data in the `toiletlabels_azurite-data` volume
+- Admin login: put `Admin__UserName` and `Admin__Password` in a gitignored `.env.local` (see `.env.example`);
+  without it the app still starts, just without an admin account
+- Map: `MAPY_API_KEY` from `.env` is passed through; without it the map is hidden
+- Tests: `dotnet test` (starts its own Azurite through Docker)
+- Image self-check (Magick.NET with HEIC, WebP, ICU): `docker run --rm toiletlabels-app:local --selftest`
+
+Measured on the local image (chiseled-extra runtime): 303 MB on disk (90.5 MB compressed content) versus 327 MB
+(47 MB compressed) for the Python image `5a76bb39`; about 42 MiB RSS idle.
 ## Deployment to the VPS
 
 The app runs on a shared OVH VPS (`https://toiletlabels.austy.cz`) behind a shared Caddy. The workflow

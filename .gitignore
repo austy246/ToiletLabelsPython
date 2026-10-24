@@ -186,3 +186,6 @@ bin/
 obj/
 .vs/
 *.user
+
+# Local compose admin credentials (.NET)
+.env.local

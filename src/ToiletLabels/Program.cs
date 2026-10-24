@@ -13,6 +13,10 @@ using ToiletLabels.Users;
 if (args.Contains("--healthcheck"))
     return await HealthCheckCommand.RunAsync();
 
+// Ověří nativní závislosti v image (Magick.NET, HEIC, WebP, ICU); bez storage a sítě.
+if (args.Contains("--selftest"))
+    return SelfTestCommand.Run(Console.Out);
+
 // Jen čtení: žádný bootstrapper ani seeding admina, takže je bezpečné pustit proti produkčnímu storage.
 if (args.Contains("--check-data"))
 {
