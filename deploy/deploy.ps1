@@ -24,7 +24,7 @@ param(
     [switch]$UpdateSecrets,
     [switch]$DryRun,
     [string]$SshTarget = "deploy@57.131.165.173",
-    [string]$SshKey = "$HOME/.ssh/id_rsa_austy",
+    [string]$SshKey = "",   # empty = ssh's own defaults (ssh-agent, ~/.ssh/config); set to force one key file
     [string]$Domain = "toiletlabels.austy.cz"
 )
 
@@ -74,9 +74,14 @@ try {
     $image = "${ImageRepo}:$Tag"
     Write-Host "Image: $image  (commit $commit)"
 
-    $key = $SshKey.Replace('\', '/')   # ssh on Windows accepts forward slashes; avoids mixed separators
-    $ssh = "ssh -i `"$key`" $SshTarget"
-    if (-not $DryRun -and -not (Test-Path -LiteralPath $SshKey)) { throw "SSH key not found: $SshKey" }
+    if ([string]::IsNullOrWhiteSpace($SshKey)) {
+        $ssh = "ssh $SshTarget"
+    }
+    else {
+        $key = $SshKey.Replace('\', '/')   # ssh on Windows accepts forward slashes; avoids mixed separators
+        $ssh = "ssh -i `"$key`" $SshTarget"
+        if (-not $DryRun -and -not (Test-Path -LiteralPath $SshKey)) { throw "SSH key not found: $SshKey" }
+    }
 
     $remoteScript = Join-Path $repoRoot 'deploy\remote-deploy.sh'
     if ([System.IO.File]::ReadAllBytes($remoteScript) -contains 13) {
