@@ -1,10 +1,12 @@
+#Requires -Version 7.2
 <#
 .SYNOPSIS
   Deploys ToiletLabels to the shared VPS from this machine: build + push to GHCR, upload deploy files, run
   remote-deploy.sh over SSH, check /healthz.
 
 .DESCRIPTION
-  Without -Tag: refuses to run with tracked changes (outside .claude/), tags the image with the full SHA of HEAD,
+  Without -Tag: refuses to run with tracked changes (outside .claude/) or untracked files under the build inputs
+  (src/, Directory.Build.props, global.json, ToiletLabels.slnx), tags the image with the full SHA of HEAD,
   runs `dotnet test`, builds linux/amd64 and pushes <sha> and latest (needs `docker login ghcr.io` beforehand).
   With -Tag: builds nothing, only checks that the image exists in GHCR. Use it for a rollback (also to the
   last Python image 5a76bb39ff751ca37a34d6b0771c5bc9bda143dd, which has no --selftest).
@@ -50,9 +52,13 @@ try {
     # --- 0. Which image -----------------------------------------------------------------------------------
     $built = $false
     if ([string]::IsNullOrWhiteSpace($Tag)) {
+        # The image is built from the working tree but tagged with the SHA of HEAD, so anything that could end up
+        # in the build and is not in HEAD must block: tracked changes, and untracked (non-ignored) build inputs.
         $dirty = @(git status --porcelain --untracked-files=no -- . ':(exclude).claude')
+        $dirty += @(git ls-files --others --exclude-standard -- src Directory.Build.props global.json ToiletLabels.slnx |
+            ForEach-Object { "?? $_" })
         if ($dirty.Count -gt 0) {
-            $msg = "Tracked changes outside .claude/ (commit or stash first):`n" + ($dirty -join "`n")
+            $msg = "Uncommitted changes (tracked, or untracked under the build inputs; commit, stash or remove first):`n" + ($dirty -join "`n")
             if ($DryRun) { Write-Warning $msg } else { throw $msg }
         }
         $Tag = (git rev-parse HEAD).Trim()
@@ -77,6 +83,17 @@ try {
         throw "deploy\remote-deploy.sh has CRLF line endings; bash on the server needs LF (check .gitattributes, re-checkout the file)."
     }
 
+    $secrets = Join-Path $repoRoot 'deploy\secrets.env'
+    if ($UpdateSecrets -and -not $DryRun -and -not (Test-Path -LiteralPath $secrets)) { throw "deploy\secrets.env not found (gitignored KEY=VALUE file)." }
+
+    # Remote arguments are decided here, before anything touches the server. git ls-tree writes nothing to
+    # stderr when the path is missing (Python-era commits), unlike `git cat-file -e`.
+    $flags = @()
+    $hasCsproj = [bool](git ls-tree --name-only $commit -- src/ToiletLabels/ToiletLabels.csproj)
+    if ($hasCsproj) { $flags += '--selftest' }   # Python-era images have no --selftest
+    if ($PrepareOnly) { $flags += '--prepare-only' }
+    $remoteArgs = (@($image) + $flags) -join ' '
+
     # --- 1. Test, build, push -----------------------------------------------------------------------------
     if ($built) {
         Write-Step "dotnet test"
@@ -98,19 +115,11 @@ try {
 
     # --- 3. Secrets (optional) ---------------------------------------------------------------------------
     if ($UpdateSecrets) {
-        $secrets = Join-Path $repoRoot 'deploy\secrets.env'
-        if (-not $DryRun -and -not (Test-Path -LiteralPath $secrets)) { throw "deploy\secrets.env not found (gitignored KEY=VALUE file)." }
         Write-Step "Updating secrets on the server (names only are printed)"
         Invoke-Cmd "$ssh bash $RemoteDir/deploy/update-env-secrets.sh < deploy\secrets.env"
     }
 
     # --- 4. remote-deploy.sh from the working copy ---------------------------------------------------------
-    $flags = @()
-    git cat-file -e "${commit}:src/ToiletLabels/ToiletLabels.csproj" 2>$null
-    if ($LASTEXITCODE -eq 0) { $flags += '--selftest' }   # Python-era images have no --selftest
-    if ($PrepareOnly) { $flags += '--prepare-only' }
-    $global:LASTEXITCODE = 0
-    $remoteArgs = (@($image) + $flags) -join ' '
     Write-Step "remote-deploy.sh $remoteArgs"
     Invoke-Cmd "$ssh bash -s -- $remoteArgs < deploy\remote-deploy.sh"
 

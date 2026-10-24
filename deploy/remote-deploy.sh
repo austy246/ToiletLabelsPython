@@ -53,7 +53,7 @@ main() {
   # 3. Native dependencies of the image (Magick.NET, HEIC, WebP, ICU); needs neither storage nor network.
   if [ "$selftest" -eq 1 ]; then
     echo "==> selftest"
-    docker run --rm "$image_ref" --selftest </dev/null || { echo "ERROR: selftest failed" >&2; exit 1; }
+    docker run --rm --memory 512m --cpus 1 "$image_ref" --selftest </dev/null || { echo "ERROR: selftest failed" >&2; exit 1; }
   fi
 
   # 4. Prepare only: convert .env and prove the new image can read every production entity (read-only).
@@ -61,7 +61,7 @@ main() {
     echo "==> migrate-env"
     bash ./migrate-env.sh
     echo "==> check-data (read-only)"
-    docker run --rm --env-file .env "$image_ref" --check-data </dev/null
+    docker run --rm --memory 512m --cpus 1 --env-file .env "$image_ref" --check-data </dev/null
     echo "prepare-only finished, nothing was deployed"
     return 0
   fi

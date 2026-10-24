@@ -20,6 +20,7 @@ services:
       interval: 30s
       timeout: 5s
       start_period: 20s
+      start_interval: 2s   # during start_period probe every 2 s so --wait returns quickly
       retries: 3
     networks:
       default: {}

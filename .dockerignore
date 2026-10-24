@@ -20,3 +20,5 @@ tests/
 .git/
 .vs/
 .claude/
+.env.local
+.superpowers/

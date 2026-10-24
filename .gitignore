@@ -187,6 +187,9 @@ obj/
 .vs/
 *.user
 
+# Agent scratch space
+.superpowers/
+
 # Local compose admin credentials (.NET)
 .env.local
 
