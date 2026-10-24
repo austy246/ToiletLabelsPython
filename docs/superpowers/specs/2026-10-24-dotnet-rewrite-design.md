@@ -124,6 +124,7 @@ Django proměnné (`DJANGO_*`, `CSRF_TRUSTED_ORIGINS`) zaniknou po cutoveru.
 - Multi-stage Dockerfile: `mcr.microsoft.com/dotnet/sdk:10.0` pro restore a publish (BuildKit cache mount pro NuGet), runtime `mcr.microsoft.com/dotnet/aspnet:10.0-noble-chiseled` (bez shellu, ne-root).
 - **Ověřit:** Magick.NET native knihovna se v chiseled image načte (glibc, libstdc++), a fold diakritiky (`string.Normalize`) v něm funguje bez ICU. Pokud ne, použít `10.0-noble-chiseled-extra` (má ICU). Pokud ani to nejde, `10.0-noble`. Rozhoduje test v image, ne odhad.
 - Workstation GC, ne Server GC (malá paměť, jeden kontejner na sdíleném VPS). `mem_limit` zůstane 512 MB, dokud měření neukáže, že stačí méně.
+- Produkční compose převezme `cpu_shares: 256` a `oom_score_adj: 500` (commit 5a76bb3). ToiletLabels je na sdíleném VPS neprioritní projekt a při nedostatku CPU nebo RAM musí ustoupit Věcem Obecním.
 - Healthcheck bez curl a shellu: aplikace spuštěná s argumentem `--healthcheck` udělá HTTP GET na `http://localhost:8080/healthz` a skončí kódem 0/1. Compose: `["CMD", "dotnet", "ToiletLabels.dll", "--healthcheck"]`.
 - Jméno image zůstane `ghcr.io/austy246/toiletlabels-app`, tagy = krátké git SHA + `latest`.
 
