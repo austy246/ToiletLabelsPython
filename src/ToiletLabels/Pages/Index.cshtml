@@ -1,0 +1,407 @@
+@page "/"
+@model IndexModel
+@using System.Globalization
+@using ToiletLabels.Labels
+@{
+    var inv = CultureInfo.InvariantCulture;
+    var isAuthenticated = User.Identity?.IsAuthenticated == true;
+    var isAdmin = User.HasClaim(AppClaims.IsAdmin, "true");
+}
+<style>
+  .card {
+    background: #fff;
+    border-radius: 1rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+    overflow: hidden;
+    transition: all 0.3s ease;
+  }
+  .card:hover {
+    box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+    transform: translateY(-2px);
+  }
+  .sign-wrapper {
+    border-radius: 0.75rem;
+    overflow: hidden;
+  }
+  .sign-wrapper-men {
+    border: 3px solid #3b82f6;
+  }
+  .sign-wrapper-women {
+    border: 3px solid #ec4899;
+  }
+  .sign-container {
+    aspect-ratio: 1;
+    background: #fff;
+    min-height: 140px;
+  }
+  @@media (min-width: 640px) {
+    .sign-container {
+      min-height: 180px;
+    }
+  }
+  .sign-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    transition: transform 0.3s ease;
+    background: #fff;
+  }
+  .card:hover .sign-img {
+    transform: scale(1.02);
+  }
+  .sign-label {
+    display: block;
+    padding: 0.4rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-align: center;
+  }
+  .sign-men-label {
+    background: #3b82f6;
+    color: white;
+  }
+  .sign-women-label {
+    background: #ec4899;
+    color: white;
+  }
+  .location-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    background: #f1f5f9;
+    border-radius: 9999px;
+    font-size: 0.7rem;
+    color: #475569;
+  }
+  .meta-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.6rem;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.375rem;
+    font-size: 0.7rem;
+    color: #64748b;
+  }
+  .card-highlight {
+    outline: 3px solid #3b82f6;
+    outline-offset: 2px;
+    transition: outline-color 0.3s ease;
+  }
+  .toilet-marker {
+    background: transparent;
+    border: none;
+  }
+  .toilet-marker .tm-pin {
+    width: 30px;
+    height: 30px;
+    background: #3b82f6;
+    border: 2px solid #fff;
+    border-radius: 50% 50% 50% 0;
+    transform: rotate(-45deg);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .toilet-marker .tm-pin svg {
+    transform: rotate(45deg);
+    width: 15px;
+    height: 15px;
+    color: #fff;
+  }
+</style>
+
+<!-- Header -->
+<header class="sticky top-0 z-20 bg-white/80 backdrop-blur-lg border-b border-slate-200/50">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="flex items-center justify-between h-16">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-pink-500 rounded-xl flex items-center justify-center">
+          <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-lg sm:text-xl font-bold text-slate-800">Toilet Signs</h1>
+          <p class="text-xs text-slate-500 hidden sm:block">Collection of creative bathroom signs</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 sm:gap-3">
+        @if (isAuthenticated)
+        {
+          <div class="hidden sm:flex items-center gap-2 text-sm text-slate-600">
+            <span class="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center">
+              <svg class="w-4 h-4 text-slate-500" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 12c2.7 0 5-2.3 5-5s-2.3-5-5-5-5 2.3-5 5 2.3 5 5 5zm0 2c-3.3 0-10 1.7-10 5v3h20v-3c0-3.3-6.7-5-10-5z"/>
+              </svg>
+            </span>
+          </div>
+          <form method="post" action="/logout/" class="inline">
+            @Html.AntiForgeryToken()
+            <button type="submit" class="px-3 py-1.5 sm:px-4 sm:py-2 bg-slate-100 hover:bg-red-50 hover:text-red-600 text-slate-600 text-sm font-medium rounded-lg transition-colors">
+              Logout
+            </button>
+          </form>
+        }
+        else
+        {
+          <a href="/login/" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
+            Login
+          </a>
+        }
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- Main Content -->
+<main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+  @if (Model.ShowMap)
+  {
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <section class="mb-6">
+    <div id="map" class="w-full rounded-2xl overflow-hidden shadow-sm" style="height:400px"></div>
+  </section>
+  <script type="application/json" id="map-points-data">@Html.Raw(Model.MapPointsJson)</script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+  (function () {
+    var points = JSON.parse(document.getElementById('map-points-data').textContent);
+    if (!points.length) return;
+    var apiKey = @Html.Raw(Model.MapyApiKeyJson);
+    var map = L.map('map');
+    L.tileLayer('https://api.mapy.com/v1/maptiles/basic/256/{z}/{x}/{y}?apikey=' + apiKey, {
+      minZoom: 0,
+      maxZoom: 19,
+      attribution: '<a href="https://api.mapy.com/copyright" target="_blank" rel="noopener">&copy; Seznam.cz a.s. a další</a>',
+    }).addTo(map);
+
+    // Required Mapy.com logo control.
+    var LogoControl = L.Control.extend({
+      options: { position: 'bottomleft' },
+      onAdd: function () {
+        var container = L.DomUtil.create('div');
+        var link = L.DomUtil.create('a', '', container);
+        link.setAttribute('href', 'https://mapy.com/');
+        link.setAttribute('target', '_blank');
+        link.setAttribute('rel', 'noopener');
+        link.innerHTML = '<img src="https://api.mapy.com/img/api/logo.svg" alt="Mapy.com" style="height:18px;display:block">';
+        L.DomEvent.disableClickPropagation(link);
+        return container;
+      },
+    });
+    map.addControl(new LogoControl());
+
+    // Blue teardrop pin with white toilet icon.
+    var toiletIcon = L.divIcon({
+      className: 'toilet-marker',
+      html: '<div class="tm-pin"><svg viewBox="0 0 448 512" fill="currentColor"><path d="M24 0C10.7 0 0 10.7 0 24S10.7 48 24 48l8 0 0 148.9c-1.9 1.4-3.8 2.9-5.6 4.4C10.9 214.5 0 232.9 0 256c0 46.9 14.3 84.1 37 112.5c14.2 17.7 31.1 31.3 48.5 41.8L65.6 469.9c-3.3 9.8-1.6 20.5 4.4 28.8s15.7 13.3 26 13.3l256 0c10.3 0 19.9-4.9 26-13.3s7.7-19.1 4.4-28.8l-19.8-59.5c17.4-10.5 34.3-24.1 48.5-41.8c22.7-28.4 37-65.5 37-112.5c0-23.1-10.9-41.5-26.4-54.6c-1.8-1.5-3.7-3-5.6-4.4L416 48l8 0c13.3 0 24-10.7 24-24s-10.7-24-24-24L24 0zM384 256.3c0 1-.3 2.6-3.8 5.6c-4.8 4.1-14 9-29.3 13.4C320.5 284 276.1 288 224 288s-96.5-4-126.9-12.8c-15.3-4.4-24.5-9.3-29.3-13.4c-3.5-3-3.8-4.6-3.8-5.6l0-.3c0 0 0-.1 0-.1c0-1 0-2.5 3.8-5.8c4.8-4.1 14-9 29.3-13.4C127.5 228 171.9 224 224 224s96.5 4 126.9 12.8c15.3 4.4 24.5 9.3 29.3 13.4c3.8 3.2 3.8 4.8 3.8 5.8c0 0 0 .1 0 .1l0 .3zM328.2 384l-.2 .5 0-.5 .2 0zM112 64l32 0c8.8 0 16 7.2 16 16s-7.2 16-16 16l-32 0c-8.8 0-16-7.2-16-16s7.2-16 16-16z"/></svg></div>',
+      iconSize: [30, 42],
+      iconAnchor: [15, 42],
+      popupAnchor: [0, -40],
+    });
+
+    function esc(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+      });
+    }
+
+    var markers = [];
+    points.forEach(function (p) {
+      var marker = L.marker([p.lat, p.lon], { icon: toiletIcon }).addTo(map);
+      var html = '<div style="text-align:center;min-width:140px">';
+      if (p.men_url || p.women_url) {
+        html += '<div style="display:flex;gap:4px;justify-content:center;margin-bottom:6px">';
+        if (p.men_url) html += '<img src="' + esc(p.men_url) + '" style="width:60px;height:60px;object-fit:contain;border:2px solid #3b82f6;border-radius:6px">';
+        if (p.women_url) html += '<img src="' + esc(p.women_url) + '" style="width:60px;height:60px;object-fit:contain;border:2px solid #ec4899;border-radius:6px">';
+        html += '</div>';
+      }
+      html += '<div style="font-weight:600;margin-bottom:4px">' + esc(p.place) + '</div>';
+      html += '<a href="#" data-row="' + esc(p.row_key) + '" class="map-card-link" style="color:#2563eb;font-size:0.85rem">Zobrazit kartu</a>';
+      html += '</div>';
+      marker.bindPopup(html);
+      markers.push(marker);
+    });
+
+    if (markers.length === 1) {
+      map.setView(markers[0].getLatLng(), 13);
+    } else {
+      map.fitBounds(L.featureGroup(markers).getBounds().pad(0.2));
+    }
+
+    map.on('popupopen', function (e) {
+      var link = e.popup._contentNode.querySelector('.map-card-link');
+      if (!link) return;
+      link.addEventListener('click', function (ev) {
+        ev.preventDefault();
+        var card = document.getElementById('pair-' + link.getAttribute('data-row'));
+        if (card) {
+          card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          card.classList.add('card-highlight');
+          setTimeout(function () { card.classList.remove('card-highlight'); }, 2000);
+        }
+        map.closePopup();
+      });
+    });
+  })();
+  </script>
+  }
+  @if (Model.Labels.Count > 0)
+  {
+  <!-- Grid Layout -->
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+    @foreach (var pair in Model.Labels)
+    {
+      var menName = MapPoints.Preferred(pair.MenThumb, pair.MenImage);
+      var womenName = MapPoints.Preferred(pair.WomenThumb, pair.WomenImage);
+      var flagCode = Countries.IsoCode(pair.Country);
+    <article id="pair-@pair.Id" class="card flex flex-col">
+      <!-- Images Section -->
+      <div class="grid grid-cols-2 gap-2 p-3 sm:p-4">
+        <div class="sign-wrapper sign-wrapper-men">
+          <div class="sign-container">
+            @if (pair.MenImage.Length > 0)
+            {
+              <img src="@(Model.BlobBaseUrl + menName)" alt="Men's sign" class="sign-img" loading="lazy">
+            }
+            else
+            {
+              <div class="w-full h-full flex items-center justify-center">
+                <svg class="w-12 h-12 text-slate-300" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 12c2.7 0 5-2.3 5-5s-2.3-5-5-5-5 2.3-5 5 2.3 5 5 5zm0 2c-3.3 0-10 1.7-10 5v3h20v-3c0-3.3-6.7-5-10-5z"/>
+                </svg>
+              </div>
+            }
+          </div>
+          <span class="sign-label sign-men-label">Men</span>
+        </div>
+        <div class="sign-wrapper sign-wrapper-women">
+          <div class="sign-container">
+            @if (pair.WomenImage.Length > 0)
+            {
+              <img src="@(Model.BlobBaseUrl + womenName)" alt="Women's sign" class="sign-img" loading="lazy">
+            }
+            else
+            {
+              <div class="w-full h-full flex items-center justify-center">
+                <svg class="w-12 h-12 text-slate-300" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 12c2.7 0 5-2.3 5-5s-2.3-5-5-5-5 2.3-5 5 2.3 5 5 5zm0 2c-3.3 0-10 1.7-10 5v3h20v-3c0-3.3-6.7-5-10-5z"/>
+                </svg>
+              </div>
+            }
+          </div>
+          <span class="sign-label sign-women-label">Women</span>
+        </div>
+      </div>
+
+      <!-- Info Section -->
+      <div class="px-3 sm:px-4 pb-3 sm:pb-4 flex flex-col flex-grow">
+        <h2 class="text-base sm:text-lg font-bold text-slate-800 mb-1 line-clamp-1">@pair.Title</h2>
+
+        @if (pair.Description.Length > 0)
+        {
+        <p class="text-sm text-slate-600 mb-3 line-clamp-2">@pair.Description</p>
+        }
+
+        <!-- Metadata tags -->
+        <div class="flex flex-wrap gap-1.5 mb-3">
+          @if (pair.Country.Length > 0)
+          {
+          <span class="meta-tag">
+            @if (flagCode.Length > 0)
+            {
+            <img src="https://flagcdn.com/24x18/@(flagCode).png" srcset="https://flagcdn.com/48x36/@(flagCode).png 2x" width="16" height="12" alt="" class="mr-1 rounded-sm" loading="lazy">
+            }
+            else
+            {
+            <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"/>
+            </svg>
+            }
+            @pair.Country
+          </span>
+          }
+          @if (pair.City.Length > 0)
+          {
+          <span class="meta-tag">
+            <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+            </svg>
+            @pair.City
+          </span>
+          }
+        </div>
+
+        <!-- Rating -->
+        @if (pair.NumVoters > 0)
+        {
+        <div class="flex items-center gap-2 mb-3">
+          <span class="meta-tag">
+            <svg class="w-3 h-3 mr-1 text-amber-500" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+            </svg>
+            @(pair.AvgVote.ToString(inv))/5
+          </span>
+          <span class="meta-tag">
+            <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+            </svg>
+            @pair.NumVoters votes
+          </span>
+        </div>
+        }
+
+        <!-- Actions -->
+        <div class="flex items-center justify-between mt-auto">
+          <div class="flex items-center gap-2">
+            @if (pair.Latitude is not null && pair.Longitude is not null)
+            {
+            <a href="https://mapy.com/fnc/v1/showmap?center=@(pair.Longitude.Value.ToString(inv)),@(pair.Latitude.Value.ToString(inv))&zoom=17&marker=true" target="_blank" rel="noopener" class="location-badge hover:bg-blue-50 hover:text-blue-600 transition-colors">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+              </svg>
+              View on map
+            </a>
+            }
+            @if (pair.Created.Length > 0)
+            {
+            <span class="location-badge">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+              </svg>
+              @(pair.Created[..Math.Min(10, pair.Created.Length)])
+            </span>
+            }
+          </div>
+
+          @if (isAdmin)
+          {
+          <a href="/pair/@pair.Id/edit/" class="px-3 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-700 text-xs font-semibold rounded-lg transition-colors">
+            Edit
+          </a>
+          }
+        </div>
+      </div>
+    </article>
+    }
+  </div>
+  }
+  else
+  {
+  <!-- Empty State -->
+  <div class="flex flex-col items-center justify-center py-16">
+    <div class="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mb-4">
+      <svg class="w-12 h-12 text-slate-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"/>
+      </svg>
+    </div>
+    <h3 class="text-lg font-semibold text-slate-800 mb-1">No signs yet</h3>
+    <p class="text-slate-500 text-sm text-center max-w-xs">Start by uploading your first toilet sign pair to build the collection.</p>
+  </div>
+  }
+</main>

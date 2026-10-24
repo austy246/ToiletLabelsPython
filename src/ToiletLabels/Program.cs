@@ -13,6 +13,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorPages();
 
 builder.Services.AddOptions<StorageOptions>().BindConfiguration(StorageOptions.SectionName);
+builder.Services.AddOptions<MapyOptions>().BindConfiguration(MapyOptions.SectionName);
 builder.Services.AddSingleton(sp => new TableServiceClient(StorageConnectionString(sp)));
 builder.Services.AddSingleton(sp => new BlobServiceClient(StorageConnectionString(sp)));
 builder.Services.AddSingleton<StorageBootstrapper>();
