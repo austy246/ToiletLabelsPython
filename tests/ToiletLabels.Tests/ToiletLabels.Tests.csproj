@@ -7,6 +7,9 @@
     <Using Include="Xunit" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="Fixtures\sample.heic" CopyToOutputDirectory="PreserveNewest" LinkBase="Fixtures" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\..\src\ToiletLabels\ToiletLabels.csproj" />
   </ItemGroup>
   <ItemGroup>
@@ -22,3 +25,4 @@
     <PackageReference Include="xunit.v3" Version="4.0.2" />
   </ItemGroup>
 </Project>
+
