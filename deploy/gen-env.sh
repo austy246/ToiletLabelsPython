@@ -17,7 +17,7 @@ umask 077
 cat > .env <<EOF2
 COMPOSE_PROJECT_NAME=toiletlabels
 APP_DOMAIN=${APP_DOMAIN}
-AllowedHosts=${APP_DOMAIN}
+AllowedHosts=${APP_DOMAIN};localhost
 ASPNETCORE_ENVIRONMENT=Production
 Storage__PublicBlobBaseUrl=https://toiletlabelsstorage.blob.core.windows.net/toiletlabels/
 APP_IMAGE=

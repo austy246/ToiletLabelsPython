@@ -48,7 +48,8 @@ fill Admin__UserName "$(get DJANGO_SUPERUSER_USERNAME)"
 fill Admin__Password "$(get DJANGO_SUPERUSER_PASSWORD)"
 fill Mapy__ApiKey "$(get MAPY_API_KEY)"
 fill APP_DOMAIN "$first_host"
-fill AllowedHosts "$first_host"
+# ";localhost" keeps host filtering from rejecting the container healthcheck (Host: localhost:8080).
+fill AllowedHosts "${first_host:+$first_host;localhost}"
 
 account="$(get ConnectionStrings__Storage | sed -n 's/.*AccountName=\([^;]*\).*/\1/p')"
 [ -n "$account" ] && fill Storage__PublicBlobBaseUrl "https://${account}.blob.core.windows.net/toiletlabels/"

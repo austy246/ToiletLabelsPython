@@ -40,7 +40,7 @@ bash "$script" "$env_file" > "$out1" 2>&1
 check "first run exits 0" test $? -eq 0
 
 check "APP_DOMAIN"          has_line "$env_file" "APP_DOMAIN=toiletlabels.austy.cz"
-check "AllowedHosts"        has_line "$env_file" "AllowedHosts=toiletlabels.austy.cz"
+check "AllowedHosts (domain;localhost for the healthcheck)" has_line "$env_file" "AllowedHosts=toiletlabels.austy.cz;localhost"
 check "Storage__PublicBlobBaseUrl" has_line "$env_file" \
   "Storage__PublicBlobBaseUrl=https://toiletlabelsstorage.blob.core.windows.net/toiletlabels/"
 check "Admin__UserName default" has_line "$env_file" "Admin__UserName=austy"
@@ -49,6 +49,15 @@ check "Mapy__ApiKey"        has_line "$env_file" "Mapy__ApiKey=k"
 check "ASPNETCORE_ENVIRONMENT" has_line "$env_file" "ASPNETCORE_ENVIRONMENT=Production"
 check "ConnectionStrings__Storage copied intact (incl. ==)" has_line "$env_file" "ConnectionStrings__Storage=$CONN"
 check "legacy connection string left untouched" has_line "$env_file" "AZURE_STORAGE_CONNECTION_STRING=$CONN"
+
+# gen-env.sh (clean server) must write the same AllowedHosts value as the migration.
+gen_dir="$(mktemp -d)"
+cp "$here/../gen-env.sh" "$gen_dir/gen-env.sh"
+APP_DOMAIN=toiletlabels.austy.cz bash "$gen_dir/gen-env.sh" > /dev/null 2>&1
+check "gen-env.sh AllowedHosts equals the migrated value" \
+  bash -c 'diff <(grep "^AllowedHosts=" "$1") <(grep "^AllowedHosts=" "$2") >/dev/null' _ "$gen_dir/.env" "$env_file"
+check "gen-env.sh AllowedHosts value" has_line "$gen_dir/.env" "AllowedHosts=toiletlabels.austy.cz;localhost"
+rm -rf "$gen_dir"
 check "APP_IMAGE untouched" has_line "$env_file" "APP_IMAGE=x"
 # File modes are not meaningful on Windows filesystems (Git Bash), so only check them elsewhere.
 case "$(uname -s)" in
