@@ -4,85 +4,107 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Django 5.2 web app displaying a gallery of paired toilet sign images (men/women). Uses Azure Blob Storage for images and Azure Table Storage for metadata (no Django models for domain data). Deployed to the shared OVH VPS via GitHub Actions (see Deployment and [docs/migrace-vps.md](docs/migrace-vps.md)).
+ASP.NET Core 10 (Razor Pages) web app displaying a gallery of paired toilet sign images (men/women) with a map. Uses Azure Blob Storage for images and Azure Table Storage for metadata and users (no relational database). Runs on the shared OVH VPS and is deployed from the local machine (see Deployment and [docs/provoz-vps.md](docs/provoz-vps.md)). The repo name still says "Python" for historical reasons: the original Django app was removed after the .NET cutover (24 Oct 2026); its migration notes are kept in [docs/migrace-vps.md](docs/migrace-vps.md).
 
 ## Commands
 
 ```powershell
-# Install dependencies
-python -m venv venv
-venv\Scripts\activate
-pip install -r requirements.txt
+# Tests (xUnit; starts its own Azurite through Docker, so Docker must be running)
+dotnet test
 
-# Run dev server (requires AZURE_STORAGE_CONNECTION_STRING env var)
-python manage.py migrate
-python manage.py runserver
-
-# Create superuser locally
-python manage.py createsuperuser
+# Local stack: app + Azurite (Azure Storage emulator)
+docker compose up -d --build
 ```
 
-Tests live in `gallery/tests.py` and run with `python manage.py test gallery`. No linting or build steps are configured.
+- App: http://localhost:8000 (health check: http://localhost:8000/healthz)
+- Azurite: blobs on `localhost:10100`, tables on `localhost:10102`, data in the `toiletlabels_azurite-data` volume
+- Local admin: put `Admin__UserName` and `Admin__Password` in a gitignored `.env.local` (see `.env.example`); without it the app starts, just without an admin account
+- Map: `MAPY_API_KEY` is interpolated into the compose file from the root `.env` (`Mapy__ApiKey`); without it the map is hidden
+- Image self-check: `docker run --rm toiletlabels-app:local --selftest`
+
+No linting or separate build steps are configured.
 
 ## Development Workflow
 
-**Work directly on `main` — do NOT create feature branches.** Commit changes straight to `main` and push; pushing to `main` does NOT deploy any more (see Deployment). (This overrides any default "branch first" behavior.)
+**Work directly on `main` — do NOT create feature branches.** Commit changes straight to `main` and push. (This overrides any default "branch first" behavior.) There is no CI: pushing to `main` does NOT deploy.
 
 ## Architecture
 
-### Storage Pattern (no Django models)
+### Layout
 
-This app does **not** use Django ORM models for domain data. Instead:
-- **Azure Table Storage** (`ToiletLabels` table) stores label metadata as entities with `PartitionKey='label'` and `RowKey=<uuid>`
-- **Azure Blob Storage** (`toiletlabels` container) stores uploaded images
-- Table entities store only blob filenames (not full URLs); templates construct URLs via `AZURE_BLOB_BASE_URL + filename`
-- SQLite is only used for Django's auth/session system
+- [src/ToiletLabels](src/ToiletLabels) - the Razor Pages app; [tests/ToiletLabels.Tests](tests/ToiletLabels.Tests) - unit and integration tests (Azurite via Docker)
+- `Pages/` - Razor Pages (gallery, upload, edit, login, logout, error); Tailwind CSS via CDN in `Pages/Shared/_Layout.cshtml`, no frontend build tooling
+- `Labels/` - label model, entity mapping, `LabelRepository`, editing rules, map points
+- `Images/` - image upload/processing (Magick.NET, HEIC and WebP thumbnails), blob names, `BlobImageStore`
+- `Geo/` - coordinate resolution (manual coordinates, Nominatim geocoder)
+- `Users/` - admin seeding, cookie auth setup, user repository
+- `Storage/` - options and bootstrapper that creates tables/containers at startup
+- `Cli/` - non-web modes of the same binary (see below)
 
-### Key Services
+### Storage
 
-- [azure_table.py](gallery/services/azure_table.py) - `AzureTableManager`: CRUD for label entities (upsert, get, list sorted by Created desc)
-- [azure_blob.py](gallery/services/azure_blob.py) - `AzureBlobManager`: image upload, base URL derivation from connection string
+- **Azure Table `ToiletLabels`**: label metadata (`PartitionKey='label'`, `RowKey=<uuid>`); entities store only blob filenames, never full URLs (pages build URLs from `Storage__PublicBlobBaseUrl`)
+- **Azure Table `ToiletLabelsUsers`**: users (the admin is created at startup from `Admin__*` if missing; an existing user's password is never changed from config)
+- **Blob container `toiletlabels`** (public): uploaded images and thumbnails
+- **Blob container `toiletlabels-keys`** (private): ASP.NET Core Data Protection key ring (`keys.xml`), so cookies survive restarts and image updates
+- No SQLite and no EF Core
+
+### CLI modes (same binary, no web server)
+
+| Flag | Purpose |
+|------|---------|
+| `--healthcheck` | Container healthcheck: GET `http://localhost:8080/healthz`, exit code 0 on HTTP 200 |
+| `--selftest` | Verifies the runtime image (Magick.NET native libs, HEIC, WebP, ICU); needs no storage or network |
+| `--check-data` | **Read-only**: reads every label entity in production storage and reports what it finds (coordinates, thumbnails, `Created`, unreadable entities); exit code 1 if an entity is unreadable |
 
 ### URL Routes
 
-| Path | View | Access |
+| Path | Page | Access |
 |------|------|--------|
-| `/` | `signpair_list` | Public |
-| `/upload/` | `upload_label` | Superuser only |
-| `/pair/<uuid>/edit/` | `edit_label` | Superuser only |
-| `/admin/` | Django admin | Staff |
-| `/login/`, `/logout/` | Django auth | Public |
-
-### Templates
-
-Templates live in `gallery/templates/gallery/`. Base template uses Tailwind CSS via CDN. No build tooling for frontend assets; WhiteNoise serves static files.
+| `/` | gallery + map | Public |
+| `/upload/` | upload | Admin only |
+| `/pair/{id}/edit/` | edit | Admin only |
+| `/login/` | login | Public |
+| `/logout/` | logout (POST only) | Signed in |
+| `/healthz` | health endpoint | Public |
 
 ## Environment Variables
 
+ASP.NET Core configuration (double underscore = nested section). Locally via compose / `.env.local`, in production via `/srv/toiletlabels/deploy/.env`.
+
 | Variable | Purpose |
 |----------|---------|
-| `AZURE_STORAGE_CONNECTION_STRING` | Required. Used by both blob and table services |
-| `MAPY_API_KEY` | API key for Mapy.com map tiles (homepage map). Set in `.env` locally and as an Azure App Setting |
-| `DJANGO_SECRET_KEY` | Django secret key (has insecure default for dev) |
-| `DJANGO_DEBUG` | Set to `True` for debug mode |
-| `DJANGO_ALLOWED_HOSTS` | Comma-separated hosts |
-| `CSRF_TRUSTED_ORIGINS` | Comma-separated origins |
-| `DJANGO_DB_PATH` | SQLite file path (default `db.sqlite3` in the project; `/data/db.sqlite3` in the container) |
-| `DJANGO_BEHIND_PROXY` | `True` behind the VPS Caddy: trusts `X-Forwarded-Proto`, secure cookies |
-| `DJANGO_SUPERUSER_USERNAME` / `DJANGO_SUPERUSER_PASSWORD` | Superuser created on startup if missing (default username `austy`) |
+| `ConnectionStrings__Storage` | Required. Storage connection string for tables and blobs |
+| `Storage__PublicBlobBaseUrl` | Public base URL of the `toiletlabels` container (e.g. `https://toiletlabelsstorage.blob.core.windows.net/toiletlabels/`) |
+| `Mapy__ApiKey` | API key for Mapy.com map tiles; without it the map is hidden |
+| `Admin__UserName` / `Admin__Password` | Admin account created on startup if missing |
+| `AllowedHosts` | Host filter, `<domain>;localhost` in production (`localhost` keeps the container healthcheck working) |
+| `ASPNETCORE_ENVIRONMENT` | `Production` on the VPS, `Development` in local compose |
+| `APP_DOMAIN` | Public domain (production `.env` only): used to render the Caddy block |
+| `APP_IMAGE` | Image reference to run (production `.env` only): written by `remote-deploy.sh` |
 
 ## Deployment
 
 ### VPS (shared with manarozeniny and az-portal-python)
 
-Production runs on the shared OVH VPS; operations (server, secrets, DNS, deleting a gallery entry) are in [docs/provoz-vps.md](docs/provoz-vps.md), the migration history in [docs/migrace-vps.md](docs/migrace-vps.md).
-The former Azure Web App was deleted on 14 Oct 2026. Only the storage account `toiletlabelsstorage` (resource group `ToiletLabels`) remains and holds all data, so never delete that group. [startup.sh](startup.sh) is a leftover of the Azure deployment (the container uses [docker-entrypoint.sh](docker-entrypoint.sh)).
+Production runs on the shared OVH VPS; operations (server, secrets, DNS, deleting a gallery entry) are in [docs/provoz-vps.md](docs/provoz-vps.md). The former Azure Web App was deleted on 14 Oct 2026. Only the storage account `toiletlabelsstorage` (resource group `ToiletLabels`) remains and holds all data, **so never delete that resource group or storage account**.
 
-- URL `https://toiletlabels.austy.cz`, server `57.131.165.173` (Debian), project dir `/srv/toiletlabels`, compose project `toiletlabels`.
-- **The GitHub Actions deploy was disabled** (`deploy-vps.yml` deleted in the first step of the .NET rewrite): pushing to `main` no longer deploys. Production is deployed from the local machine with `deploy/deploy.ps1` (created in task 11 of the plan). The app is being rewritten to ASP.NET Core 10 per [the spec](docs/superpowers/specs/2026-10-24-dotnet-rewrite-design.md); until the cutover the running production is the last Python image deployed by the former workflow (build: [Dockerfile](Dockerfile) pushed to `ghcr.io/austy246/toiletlabels-app`, started via [deploy/docker-compose.yml](deploy/docker-compose.yml)).
-- TLS/routing: the shared Caddy of `manarozeniny` (compose project `deploy`) imports `/srv/infra/sites/*.caddy`. The workflow renders [deploy/toiletlabels.caddy](deploy/toiletlabels.caddy), runs `caddy validate`, then `caddy reload`, and rolls back on an invalid config. The app joins the external Docker network `web` with alias `toiletlabels-app`. Certificate via HTTP-01, so the DNS A record `toiletlabels` (zone `austy.cz`) must point to the VPS.
-- State: SQLite in volume `app_data` (`/data/db.sqlite3`: only the superuser and sessions, recreated from env by the entrypoint). Labels and images stay in Azure. No Postgres, no backups.
-- `deploy/.env` on the server is created once by `deploy/gen-env.sh` and merged with secrets by `deploy/update-env-secrets.sh` (allow-listed keys, never in argv).
-- GitHub secrets: `SSH_HOST`, `SSH_USER`, `SSH_KEY` (dedicated key `toiletlabels-ci`, public part in `~deploy/.ssh/authorized_keys`), `APP_DOMAIN`, `AZURE_STORAGE_CONNECTION_STRING`, `MAPY_API_KEY`, `DJANGO_SUPERUSER_USERNAME`, `DJANGO_SUPERUSER_PASSWORD`. Values came from the App Service settings.
-- Server access: `ssh -i ~/.ssh/id_rsa_austy deploy@57.131.165.173` (group `docker`, no sudo) or `debian@57.131.165.173` (passwordless sudo, no docker).
+**There is no CI and no GitHub Actions: deploy from the local machine** with [deploy/deploy.ps1](deploy/deploy.ps1) (PowerShell 7.2+, Docker with buildx):
+
+```powershell
+pwsh ./deploy/deploy.ps1                 # tests, buildx linux/amd64, push :<full sha>, upload deploy/, remote-deploy.sh, /healthz check
+pwsh ./deploy/deploy.ps1 -PrepareOnly    # migrate deploy/.env on the server + read-only --check-data; deploys nothing
+pwsh ./deploy/deploy.ps1 -Tag <sha>      # redeploy / rollback an existing image (builds nothing)
+pwsh ./deploy/deploy.ps1 -UpdateSecrets  # streams gitignored deploy/secrets.env into update-env-secrets.sh
+pwsh ./deploy/deploy.ps1 -DryRun         # print the commands only
+```
+
+- Without `-Tag` it refuses to run with uncommitted tracked changes or untracked build inputs, tags the image `ghcr.io/austy246/toiletlabels-app:<full sha>` (plus `latest`), runs `dotnet test` first. `deploy/` is uploaded from the commit of the tag; `remote-deploy.sh` is streamed from the working copy.
+- GHCR login (once, the gh token needs `write:packages`): `gh auth token | docker login ghcr.io -u austy246 --password-stdin`
+- ssh uses its defaults (ssh-agent, `~/.ssh/config`) unless `-SshKey <file>` is given; target `deploy@57.131.165.173`.
+- Server: VPS `57.131.165.173` (Debian), project dir `/srv/toiletlabels/deploy`, compose project `toiletlabels`, URL `https://toiletlabels.austy.cz`.
+- Routing/TLS: the shared Caddy of `manarozeniny` (compose project `deploy`) imports `/srv/infra/sites/*.caddy`. `remote-deploy.sh` renders [deploy/toiletlabels.caddy](deploy/toiletlabels.caddy), runs `caddy validate`, then `caddy reload`, and rolls back an invalid block. The app joins the external Docker network `web` with alias `toiletlabels-app` and listens on port 8080. Certificate via HTTP-01, so the DNS A/AAAA records `toiletlabels` (zone `austy.cz`) must point to the VPS.
+- Low priority on the shared VPS: `cpu_shares: 256`, `oom_score_adj: 500`, `mem_limit: 512m`; the healthcheck timeout is 15 s because a fresh dotnet process can be slow when the VPS is busy.
+- State: none on the server. Labels, users, images and the Data Protection key ring all live in Azure Storage. No database, no backups beyond Azure Storage redundancy.
+- Server access: `ssh deploy@57.131.165.173` (group `docker`, no sudo) or `debian@57.131.165.173` (passwordless sudo, no docker).
 - Health endpoint: `GET /healthz`.

@@ -1,5 +1,5 @@
 # Lokální vývoj: aplikace + Azurite (blob 10100, tabulky 10102).
-# Tajné hodnoty se do kontejneru nepředávají celým souborem .env (ten patří Django verzi),
+# Tajné hodnoty se do kontejneru nepředávají celým souborem .env (obsahuje i další hodnoty),
 # jen Mapy__ApiKey se z něj dosadí. Admin údaje jsou v nepovinném, gitignorovaném .env.local.
 name: toiletlabels
 

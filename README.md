@@ -1,36 +1,17 @@
-# ToiletLabelsPython
+# ToiletLabels
 
-Reincarnation of my university time idea using Django.
+Reincarnation of my university time idea: a gallery of toilet sign images - always a pair of images, one for men and
+one for women - with a map.
 
-A gallery of toilet sign images - always a pair of images, one for men and one for women.
+The admin can upload images (one for men, one for women) along with the place name, coordinates, and description.
+Images are stored in Azure Blob Storage, metadata and users in Azure Table Storage.
 
-Admin can upload images (one for men, one for women) along with the place name, coordinates, and description.
-
-Images are stored in Azure Blob Storage.
+The app is ASP.NET Core 10 (Razor Pages): `src/ToiletLabels`, tests in `tests/ToiletLabels.Tests`. It started as a
+Django app (hence the repository name); the Django code was removed on 24 Oct 2026 after the cutover.
 
 ## Local Development
 
-```sh
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Run migrations
-python manage.py migrate
-
-# Run development server
-python manage.py runserver
-```
-
-The app will be available at http://localhost:8000
-
-## Local Development (.NET)
-
-The app is being rewritten in ASP.NET Core 10 (`src/ToiletLabels`, tests in `tests/ToiletLabels.Tests`). The local
-stack is the app plus Azurite (the Azure Storage emulator):
+The local stack is the app plus Azurite (the Azure Storage emulator):
 
 ```sh
 docker compose up -d --build
@@ -40,48 +21,23 @@ docker compose up -d --build
 - Azurite: blobs on `localhost:10100`, tables on `localhost:10102`, data in the `toiletlabels_azurite-data` volume
 - Admin login: put `Admin__UserName` and `Admin__Password` in a gitignored `.env.local` (see `.env.example`);
   without it the app still starts, just without an admin account
-- Map: `MAPY_API_KEY` from `.env` is passed through; without it the map is hidden
+- Map: `MAPY_API_KEY` from the root `.env` is passed through; without it the map is hidden
 - Tests: `dotnet test` (starts its own Azurite through Docker)
 - Image self-check (Magick.NET with HEIC, WebP, ICU): `docker run --rm toiletlabels-app:local --selftest`
 
 Measured on the local image (chiseled-extra runtime): 303 MB on disk (90.5 MB compressed content) versus 327 MB
-(47 MB compressed) for the Python image `5a76bb39`; about 42 MiB RSS idle.
+(47 MB compressed) for the former Python image `5a76bb39`; about 42 MiB RSS idle.
+
 ## Deployment to the VPS
 
-The app runs on a shared OVH VPS (`https://toiletlabels.austy.cz`) behind a shared Caddy. The workflow
-`Deploy to VPS` runs on every push to `main`, builds the Docker image and deploys it over SSH.
-Details: [docs/migrace-vps.md](docs/migrace-vps.md).
+The app runs on a shared OVH VPS (`https://toiletlabels.austy.cz`) behind a shared Caddy. There is no CI: pushing to
+`main` does not deploy. Deploy from the local machine (PowerShell 7.2+, Docker with buildx):
 
-## Legacy: Azure Web App (removed 14 Oct 2026)
+```sh
+pwsh ./deploy/deploy.ps1                # tests, build linux/amd64, push to GHCR, deploy over ssh, check /healthz
+pwsh ./deploy/deploy.ps1 -Tag <sha>     # redeploy / roll back an existing image
+pwsh ./deploy/deploy.ps1 -PrepareOnly   # migrate the server .env and run the read-only --check-data
+```
 
-The app used to run on Azure Web App and deploy via GitHub Actions. The web app is gone (the storage account with
-the data remains); the notes below are kept for history.
-
-### Setup
-
-1. Create an Azure Service Principal:
-   ```sh
-   az ad sp create-for-rbac --name "toiletlabels-github" --role contributor \
-       --scopes /subscriptions/{subscription-id}/resourceGroups/{resource-group}/providers/Microsoft.Web/sites/toiletlabels
-   ```
-
-2. Add the `AZURE_CREDENTIALS` secret to your GitHub repository with this format:
-   ```json
-   {
-       "clientId": "<appId from output>",
-       "clientSecret": "<password from output>",
-       "tenantId": "<tenant from output>",
-       "subscriptionId": "<your subscription id>"
-   }
-   ```
-
-3. Configure Azure Web App startup command:
-   ```
-   gunicorn --bind=0.0.0.0 --timeout 600 toiletlabels.wsgi:application
-   ```
-
-4. Set environment variables in Azure Web App Configuration:
-   - `AZURE_ACCOUNT_NAME`
-   - `AZURE_ACCOUNT_KEY`
-   - `AZURE_CONTAINER`
-   - `AZURE_TABLE_NAME`
+Details, secrets handling and server operations: [docs/provoz-vps.md](docs/provoz-vps.md). The notes on the earlier
+Django migration are kept in [docs/migrace-vps.md](docs/migrace-vps.md).

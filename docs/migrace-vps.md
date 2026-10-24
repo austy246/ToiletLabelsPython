@@ -1,5 +1,9 @@
 # Migrace ToiletLabels na sdílený VPS: runbook
 
+> **Historický dokument.** Popisuje dřívější migraci Django verze aplikace na sdílený VPS. Django kód, GitHub workflow,
+> SQLite volume i Python image byly 24. 10. 2026 odstraněny po přechodu na ASP.NET Core 10. Aktuální provoz a nasazení:
+> `docs/provoz-vps.md`.
+
 Cíl: aplikace běží na stejném OVH VPS jako `manarozeniny` a `az-portal-python`, za jejich sdíleným Caddy.
 Co je skutečně nastavené a jak to udržovat: `docs/provoz-vps.md`.
 Vzor: `az-portal-python/docs/provoz-vps.md`, `docs/migrace-vps.md`, `docs/navrh-sdileny-caddy.md`.
