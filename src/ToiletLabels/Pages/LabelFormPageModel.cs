@@ -17,7 +17,7 @@ public abstract class LabelFormPageModel(IImageStore images, IOptions<MapyOption
     public const string MissingMenImage = "Nahraj fotku – muži.";
     public const string MissingWomenImage = "Nahraj fotku – ženy.";
     public const string NotAnImage = "Soubor není obrázek.";
-    public const string TextTooLong = "Text je příliš dlouhé.";
+    public const string TextTooLong = "Text je příliš dlouhý.";
 
     private const int MaxPlaceLength = 200;
     private const int MaxDescriptionLength = 2000;

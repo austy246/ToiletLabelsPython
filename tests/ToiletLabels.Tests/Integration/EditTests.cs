@@ -364,7 +364,7 @@ public class EditTests(AzuriteFixture azurite)
             new FormFile("men_image", "m.png", TestImages.PngRgba(50, 50), "image/png"));
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Contains("Text je příliš dlouhé.", WebUtility.HtmlDecode(await response.BodyAsync()));
+        Assert.Contains("Text je příliš dlouhý.", WebUtility.HtmlDecode(await response.BodyAsync()));
         Assert.Equal(seeded, await GetLabelAsync(factory, seeded.Id));
         Assert.False(await Container(factory).GetBlobClient($"{seeded.Id}_men.png").ExistsAsync(Ct));
     }

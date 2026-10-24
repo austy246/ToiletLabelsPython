@@ -286,7 +286,7 @@ public class UploadTests(AzuriteFixture azurite)
             new FormFile("women_image", "w.jpg", TestImages.Jpeg(100, 100)));
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Contains("Text je příliš dlouhé.", System.Net.WebUtility.HtmlDecode(await response.BodyAsync()));
+        Assert.Contains("Text je příliš dlouhý.", System.Net.WebUtility.HtmlDecode(await response.BodyAsync()));
         Assert.Empty(await LabelsAsync(factory));
         Assert.Empty(await BlobNamesAsync(factory));
     }
