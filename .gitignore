@@ -189,3 +189,6 @@ obj/
 
 # Local compose admin credentials (.NET)
 .env.local
+
+# Local secrets for deploy.ps1 -UpdateSecrets (KEY=VALUE lines piped to the server)
+deploy/secrets.env

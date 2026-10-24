@@ -6,10 +6,7 @@ x-logging: &default-logging
 
 services:
   app:
-    image: ${APP_IMAGE:-toiletlabels-app:local}
-    build:
-      context: ..
-      dockerfile: Dockerfile
+    image: ${APP_IMAGE:?APP_IMAGE missing}
     restart: unless-stopped
     logging: *default-logging
     env_file: .env
@@ -18,13 +15,11 @@ services:
     # Neprioritní projekt na sdíleném VPS: nižší váha CPU a přednostní oběť při OOM, aby nezdržel Věci Obecní.
     cpu_shares: 256
     oom_score_adj: 500
-    volumes:
-      - app_data:/data
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz')"]
+      test: ["CMD", "dotnet", "ToiletLabels.dll", "--healthcheck"]
       interval: 30s
       timeout: 5s
-      start_period: 30s
+      start_period: 20s
       retries: 3
     networks:
       default: {}
@@ -35,6 +30,3 @@ networks:
   web:
     external: true
     name: web
-
-volumes:
-  app_data:

@@ -6,7 +6,7 @@ set -euo pipefail
 umask 077
 
 ENV_FILE="${ENV_FILE:-$(dirname "$0")/.env}"
-ALLOWED_KEYS="${ALLOWED_KEYS:-AZURE_STORAGE_CONNECTION_STRING MAPY_API_KEY DJANGO_SUPERUSER_USERNAME DJANGO_SUPERUSER_PASSWORD}"
+ALLOWED_KEYS="${ALLOWED_KEYS:-ConnectionStrings__Storage Mapy__ApiKey Admin__UserName Admin__Password}"
 
 [ -f "$ENV_FILE" ] || { echo "missing $ENV_FILE" >&2; exit 1; }
 
@@ -15,7 +15,9 @@ trap 'rm -f "$tmp" "$tmp.new"' EXIT
 cp "$ENV_FILE" "$tmp"
 
 while IFS= read -r line || [ -n "$line" ]; do
+  line="${line%$'\r'}"   # tolerate CRLF in a secrets.env written on Windows
   [ -z "$line" ] && continue
+  case "$line" in *=*) ;; *) echo "skipping malformed line" >&2; continue ;; esac   # never echo a line without a key
   key="${line%%=*}"
   value="${line#*=}"
   case " $ALLOWED_KEYS " in
