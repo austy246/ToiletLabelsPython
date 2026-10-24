@@ -3,6 +3,7 @@ using Azure.Storage.Blobs;
 using ToiletLabels.Cli;
 using ToiletLabels.Labels;
 using ToiletLabels.Storage;
+using ToiletLabels.Users;
 
 // Přepínače příkazové řádky se zpracují před buildem hostu.
 if (args.Contains("--healthcheck"))
@@ -16,11 +17,18 @@ builder.Services.AddSingleton(sp => new TableServiceClient(StorageConnectionStri
 builder.Services.AddSingleton(sp => new BlobServiceClient(StorageConnectionString(sp)));
 builder.Services.AddSingleton<StorageBootstrapper>();
 builder.Services.AddSingleton<ILabelRepository, LabelRepository>();
+builder.Services.AddAppAuth(builder.Configuration);
 
 var app = builder.Build();
 
 await app.Services.GetRequiredService<StorageBootstrapper>()
     .EnsureAsync(app.Environment.IsDevelopment(), app.Lifetime.ApplicationStopping);
+await app.Services.GetRequiredService<AdminSeeder>().SeedAsync(app.Lifetime.ApplicationStopping);
+
+// Musí být první, aby ostatní middleware viděl skutečné schéma a IP klienta za Caddy.
+app.UseForwardedHeaders();
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapGet("/healthz", () => Results.Json(new { status = "ok" }));
 app.MapRazorPages();

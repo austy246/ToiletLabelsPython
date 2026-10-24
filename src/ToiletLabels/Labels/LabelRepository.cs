@@ -59,7 +59,7 @@ public sealed class LabelRepository(TableServiceClient tables, IOptions<StorageO
 
     private async Task<TableEntity?> GetEntityAsync(string id, CancellationToken cancellationToken)
     {
-        if (!IsValidKey(id))
+        if (!TableKey.IsValid(id))
             return null;
         try
         {
@@ -73,10 +73,4 @@ public sealed class LabelRepository(TableServiceClient tables, IOptions<StorageO
             return null;
         }
     }
-
-    // Klíč entity nesmí být prázdný ani obsahovat / \ # ? a řídicí znaky. Azurite na takové klíče
-    // odpovídá 500, proto je odmítáme dřív, než se dotaz vůbec odešle.
-    private static bool IsValidKey(string id) =>
-        !string.IsNullOrEmpty(id)
-        && id.All(c => c is not ('/' or '\\' or '#' or '?') && !char.IsControl(c));
 }

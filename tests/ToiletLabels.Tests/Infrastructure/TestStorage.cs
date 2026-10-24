@@ -28,6 +28,8 @@ public sealed class TestStorage
 
     public TableClient LabelsTableClient => Tables.GetTableClient(Options.LabelsTable);
 
+    public TableClient UsersTableClient => Tables.GetTableClient(Options.UsersTable);
+
     public StorageBootstrapper Bootstrapper => new(Tables, Blobs, Microsoft.Extensions.Options.Options.Create(Options));
 
     /// <summary>Vytvoří tabulku štítků a vrátí repozitář nad ní.</summary>
