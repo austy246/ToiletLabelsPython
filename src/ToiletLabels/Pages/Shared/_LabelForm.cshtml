@@ -1,0 +1,79 @@
+@* Společný formulář stránek nahrávání a úpravy (port upload_label.html a edit_label.html). *@
+@model LabelFormPageModel
+@{
+    var selectedCountry = Model.SelectedCountry;
+    var knownCountry = Model.CountryOptions.Contains(selectedCountry);
+}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+<h1 class="text-2xl font-bold mb-6">@Model.Heading</h1>
+@if (Model.Errors.Count > 0)
+{
+<ul class="mb-4 text-red-600 text-sm">
+  @foreach (var error in Model.Errors)
+  {
+  <li>@Html.Raw(LabelFormPageModel.ErrorEncoder.Encode(error))</li>
+  }
+</ul>
+}
+<form method="post" enctype="multipart/form-data" class="bg-white shadow-md rounded-2xl px-6 sm:px-8 pt-6 pb-8 mb-4">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-x-8">
+      <div>
+        <div class="mb-4">
+            <label for="men_image" class="block text-gray-700 text-sm font-bold mb-2">Men's Image:</label>
+            <input type="file" name="men_image" id="men_image" accept="image/*" required="@(!Model.IsEdit)" class="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none">
+            @if (Model.MenPreviewUrl.Length > 0)
+            {
+            <img src="@Model.MenPreviewUrl" alt="Men's sign" class="w-32 h-32 object-contain mt-2 rounded border">
+            }
+        </div>
+        <div class="mb-4">
+            <label for="women_image" class="block text-gray-700 text-sm font-bold mb-2">Women's Image:</label>
+            <input type="file" name="women_image" id="women_image" accept="image/*" required="@(!Model.IsEdit)" class="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none">
+            @if (Model.WomenPreviewUrl.Length > 0)
+            {
+            <img src="@Model.WomenPreviewUrl" alt="Women's sign" class="w-32 h-32 object-contain mt-2 rounded border">
+            }
+        </div>
+        <div class="mb-4">
+            <label for="place" class="block text-gray-700 text-sm font-bold mb-2">Place (optional):</label>
+            <input type="text" name="place" id="place" value="@Model.Place" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+        </div>
+        <div class="mb-4">
+            <label for="description" class="block text-gray-700 text-sm font-bold mb-2">Description:</label>
+            <textarea name="description" id="description" rows="3" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">@Model.Description</textarea>
+        </div>
+        <div class="mb-4">
+            <label for="country" class="block text-gray-700 text-sm font-bold mb-2">Country (optional):</label>
+            <select name="country" id="country" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline bg-white">
+                <option value="">— vyber zemi —</option>
+                @if (selectedCountry.Length > 0 && !knownCountry)
+                {
+                <option value="@selectedCountry" selected>@selectedCountry</option>
+                }
+                @foreach (var c in Model.CountryOptions)
+                {
+                <option value="@c" selected="@(c == selectedCountry)">@c</option>
+                }
+            </select>
+        </div>
+        <div class="mb-4">
+            <label for="city" class="block text-gray-700 text-sm font-bold mb-2">City (optional):</label>
+            <input type="text" name="city" id="city" value="@Model.City" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+        </div>
+        <div class="mb-4">
+            <button type="button" id="geocode-search" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold py-2 px-3 rounded">Vyhledej na mapě</button>
+            <span id="geocode-msg" class="text-sm text-gray-500 ml-2"></span>
+        </div>
+      </div>
+      <div>
+        @if (Model.ShowPicker)
+        {
+        <partial name="_LocationPicker" model="Model.Picker" />
+        }
+      </div>
+    </div>
+    <button type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">@Model.SubmitText</button>
+</form>
+<a href="/" class="text-blue-600 hover:underline">Back to list</a>
+</div>
+<partial name="_FileUploadFix" />
