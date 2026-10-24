@@ -369,6 +369,64 @@ public class EditTests(AzuriteFixture azurite)
         Assert.False(await Container(factory).GetBlobClient($"{seeded.Id}_men.png").ExistsAsync(Ct));
     }
 
+    /// <summary>Starý záznam s textem nad limitem (např. z dřívější verze) uloží přímo do tabulky.</summary>
+    private static async Task<Label> SeedLongPlaceAsync(AppFactory factory, HttpClient client, int length)
+    {
+        var seeded = await SeedAsync(factory, client);
+        var table = factory.Services.GetRequiredService<TableServiceClient>().GetTableClient(factory.LabelsTable);
+        var patch = new TableEntity("label", seeded.Id) { ["Place"] = new string('p', length) };
+        await table.UpdateEntityAsync(patch, ETag.All, TableUpdateMode.Merge, Ct);
+        return await GetLabelAsync(factory, seeded.Id);
+    }
+
+    [Fact]
+    public async Task Edit_LegacyTooLongPlace_CanBeEditedWhenPlaceUnchanged()
+    {
+        var (factory, _) = CreateFactory(azurite);
+        await using var disposeFactory = factory;
+        var client = await factory.CreateAdminClientAsync();
+        var legacy = await SeedLongPlaceAsync(factory, client, 300);
+
+        var response = await client.PostFormAsync($"/pair/{legacy.Id}/edit/", Fields(("place", legacy.Place), ("city", "Plzeň")));
+
+        Assert.Equal(HttpStatusCode.Found, response.StatusCode);
+        var label = await GetLabelAsync(factory, legacy.Id);
+        Assert.Equal(legacy.Place, label.Place);
+        Assert.Equal("Plzeň", label.City);
+    }
+
+    [Fact]
+    public async Task Edit_LegacyTooLongPlace_ChangedToAnotherTooLongValue_Errors()
+    {
+        var (factory, _) = CreateFactory(azurite);
+        await using var disposeFactory = factory;
+        var client = await factory.CreateAdminClientAsync();
+        var legacy = await SeedLongPlaceAsync(factory, client, 300);
+
+        var response = await client.PostFormAsync($"/pair/{legacy.Id}/edit/", Fields(("place", new string('q', 250))));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Text je příliš dlouhý.", WebUtility.HtmlDecode(await response.BodyAsync()));
+        Assert.Equal(legacy, await GetLabelAsync(factory, legacy.Id));
+    }
+
+    [Fact]
+    public async Task Edit_LegacyTooLongDescription_BrowserCrlfLineBreaksCountAsUnchanged()
+    {
+        var (factory, _) = CreateFactory(azurite);
+        await using var disposeFactory = factory;
+        var client = await factory.CreateAdminClientAsync();
+        var seeded = await SeedAsync(factory, client);
+        var stored = string.Join("\n", Enumerable.Repeat(new string('d', 99), 25));   // 2 499 znaků, nad limitem 2 000
+        var table = factory.Services.GetRequiredService<TableServiceClient>().GetTableClient(factory.LabelsTable);
+        await table.UpdateEntityAsync(new TableEntity("label", seeded.Id) { ["Description"] = stored }, ETag.All, TableUpdateMode.Merge, Ct);
+
+        var response = await client.PostFormAsync($"/pair/{seeded.Id}/edit/",
+            Fields(("description", stored.Replace("\n", "\r\n"))));
+
+        Assert.Equal(HttpStatusCode.Found, response.StatusCode);
+    }
+
     [Fact]
     public async Task Edit_OverLimit_Returns413()
     {

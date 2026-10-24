@@ -29,7 +29,8 @@ public static class CheckDataCommand
         }
 
         var options = config.GetSection(StorageOptions.SectionName).Get<StorageOptions>() ?? new StorageOptions();
-        var table = new TableServiceClient(connectionString).GetTableClient(options.LabelsTable);
+        var tables = new TableServiceClient(connectionString);
+        var table = tables.GetTableClient(options.LabelsTable);
 
         var total = 0;
         var withoutCoordinates = 0;
@@ -38,6 +39,7 @@ public static class CheckDataCommand
         var voterTypes = new SortedSet<string>(StringComparer.Ordinal);
         var voteTypes = new SortedSet<string>(StringComparer.Ordinal);
         var unreadable = new List<string>();
+        int maxPlace = 0, maxDescription = 0, maxCity = 0, maxCountry = 0;
 
         try
         {
@@ -49,6 +51,10 @@ public static class CheckDataCommand
                 try
                 {
                     var label = read(entity);
+                    maxPlace = Math.Max(maxPlace, label.Place.Length);
+                    maxDescription = Math.Max(maxDescription, label.Description.Length);
+                    maxCity = Math.Max(maxCity, label.City.Length);
+                    maxCountry = Math.Max(maxCountry, label.Country.Length);
                     if (label.Latitude is null || label.Longitude is null)
                         withoutCoordinates++;
                     if (label.MenThumb == "" || label.WomenThumb == "")
@@ -68,7 +74,9 @@ public static class CheckDataCommand
             return 1;
         }
 
+        await output.WriteLineAsync($"Storage account: {tables.AccountName}");
         await output.WriteLineAsync($"Labels: {total}, unreadable: {unreadable.Count}");
+        await output.WriteLineAsync($"Max lengths: Place {maxPlace}, Description {maxDescription}, City {maxCity}, Country {maxCountry}");
         await output.WriteLineAsync($"Without coordinates: {withoutCoordinates}");
         await output.WriteLineAsync($"Without thumbnails: {withoutThumbs}");
         await output.WriteLineAsync($"Without Created: {withoutCreated}");

@@ -51,7 +51,7 @@ public class EditModel(ILabelRepository labels, LabelEditor editor, IImageStore 
 
         var men = await ReadAsync(MenImage, ct);
         var women = await ReadAsync(WomenImage, ct);
-        ValidateTexts();
+        ValidateTexts(_existing);
         if (Errors.Count > 0)
         {
             return Page();

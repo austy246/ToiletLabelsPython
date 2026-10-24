@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -39,6 +40,14 @@ public static class AuthSetup
         services.AddOptions<CookieAuthenticationOptions>(CookieAuthenticationDefaults.AuthenticationScheme)
             .Configure<IWebHostEnvironment>((options, env) =>
                 options.Cookie.SecurePolicy = env.IsDevelopment() ? CookieSecurePolicy.SameAsRequest : CookieSecurePolicy.Always);
+
+        // Antiforgery cookie: HttpOnly zůstává výchozí, mimo Development navíc vždy Secure (provoz jde přes HTTPS za Caddy).
+        services.AddOptions<AntiforgeryOptions>()
+            .Configure<IWebHostEnvironment>((options, env) =>
+            {
+                if (!env.IsDevelopment())
+                    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+            });
 
         services.AddAuthorizationBuilder()
             .AddPolicy(AdminPolicy, policy => policy.RequireClaim(AppClaims.IsAdmin, "true"));

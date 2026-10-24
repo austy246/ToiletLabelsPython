@@ -56,6 +56,12 @@ await app.Services.GetRequiredService<AdminSeeder>().SeedAsync(app.Lifetime.Appl
 
 // Musí být první, aby ostatní middleware viděl skutečné schéma a IP klienta za Caddy.
 app.UseForwardedHeaders();
+if (!app.Environment.IsDevelopment())
+{
+    // Žádné podrobnosti o výjimce ven: stránka /Error a prostý text pro ostatní stavové kódy.
+    app.UseExceptionHandler("/Error");
+    app.UseStatusCodePages();
+}
 app.UseRequestBodyLimit();
 app.UseAuthentication();
 app.UseAuthorization();

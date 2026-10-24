@@ -80,9 +80,20 @@ public class AuthTests(AzuriteFixture azurite)
         await using var baseFactory = new AppFactory(azurite);
         await baseFactory.CreateUserAsync("austy", "pw-1", isAdmin: true);
         await using var factory = baseFactory.WithWebHostBuilder(b => b.UseEnvironment(environment));
-        var client = factory.CreateClient(NoRedirect);
+        // Development: žádost jde po http a Secure cookie se nenastaví. Production: Secure vynutí vždy, takže klient
+        // musí jet po https, jinak by cookie s antiforgery tokenem nikdy neposlal zpět.
+        var client = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false,
+            BaseAddress = new Uri(secure ? "https://localhost" : "http://localhost"),
+        });
 
-        // Žádost jde po http: Development cookie Secure nenastaví, Production ji vynutí vždy.
+        var page = await client.GetAsync("/login/", TestContext.Current.CancellationToken);
+        var antiforgery = page.Headers.GetValues("Set-Cookie")
+            .Single(v => v.StartsWith(".AspNetCore.Antiforgery.", StringComparison.Ordinal));
+        Assert.Equal(secure, antiforgery.Contains("secure", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains("httponly", antiforgery, StringComparison.OrdinalIgnoreCase);
+
         var res = await baseFactory.LoginAsync(client, "austy", "pw-1");
 
         Assert.Equal(HttpStatusCode.Found, res.StatusCode);

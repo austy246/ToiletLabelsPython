@@ -93,17 +93,35 @@ public abstract class LabelFormPageModel(IImageStore images, IOptions<MapyOption
     protected LabelInput ToInput() =>
         new(Place ?? "", Description ?? "", Country ?? "", City ?? "", Latitude, Longitude);
 
-    /// <summary>Přidá chybu, když je některý text delší než povolený limit (Place, City, Country 200, Description 2000).</summary>
-    protected void ValidateTexts()
+    /// <summary>
+    /// Přidá chybu, když je některý text delší než povolený limit (Place, City, Country 200, Description 2000).
+    /// Při úpravě (<paramref name="existing"/>) se limit vynucuje jen u polí, jejichž odeslaná hodnota se liší od uložené,
+    /// aby šly upravit i staré záznamy s delším textem.
+    /// </summary>
+    protected void ValidateTexts(Label? existing = null)
     {
-        if ((Place?.Length ?? 0) > MaxPlaceLength
-            || (City?.Length ?? 0) > MaxPlaceLength
-            || (Country?.Length ?? 0) > MaxPlaceLength
-            || (Description?.Length ?? 0) > MaxDescriptionLength)
+        if (TooLong(Place, existing?.Place, MaxPlaceLength)
+            || TooLong(City, existing?.City, MaxPlaceLength)
+            || TooLong(Country, existing?.Country, MaxPlaceLength)
+            || TooLong(Description, existing?.Description, MaxDescriptionLength))
         {
             Errors.Add(TextTooLong);
         }
     }
+
+    private static bool TooLong(string? submitted, string? stored, int max)
+    {
+        var value = submitted ?? "";
+        if (value.Length <= max)
+        {
+            return false;
+        }
+
+        // Prohlížeč odesílá konce řádků v textarea jako CRLF, uložená hodnota může mít jen LF.
+        return stored is null || NormalizeNewlines(value) != NormalizeNewlines(stored);
+    }
+
+    private static string NormalizeNewlines(string value) => value.Replace("\r\n", "\n");
 
     /// <summary>Soubor z formuláře; prázdná část (nic nevybráno) je <c>null</c>.</summary>
     protected static async Task<UploadedImage?> ReadAsync(IFormFile? file, CancellationToken ct)

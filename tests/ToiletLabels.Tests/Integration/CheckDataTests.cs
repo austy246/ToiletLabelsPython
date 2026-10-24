@@ -22,6 +22,9 @@ public class CheckDataTests(AzuriteFixture azurite)
         var text = output.ToString();
         Assert.Equal(0, exitCode);
         Assert.Contains("Labels: 2, unreadable: 0", text);
+        Assert.Contains("Storage account: devstoreaccount1", text);
+        Assert.DoesNotContain("AccountKey", text);
+        Assert.Contains("Max lengths: Place 8, Description 12, City 5, Country 5", text);
         Assert.Contains("Without coordinates: 1", text);
         Assert.Contains("Without thumbnails: 1", text);
         Assert.Contains("Without Created: 1", text);
