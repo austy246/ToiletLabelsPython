@@ -8,8 +8,9 @@ COPY src/ToiletLabels/ToiletLabels.csproj src/ToiletLabels/
 RUN --mount=type=cache,target=/root/.nuget/packages \
     dotnet restore src/ToiletLabels/ToiletLabels.csproj -r linux-x64
 COPY src/ToiletLabels/ src/ToiletLabels/
+# No --no-restore: CI (gha layer cache) does not carry the cache mount, so publish must be able to restore again.
 RUN --mount=type=cache,target=/root/.nuget/packages \
-    dotnet publish src/ToiletLabels/ToiletLabels.csproj -c Release -r linux-x64 --no-self-contained --no-restore -o /app
+    dotnet publish src/ToiletLabels/ToiletLabels.csproj -c Release -r linux-x64 --no-self-contained -o /app
 
 # Runtime: 10.0-noble-chiseled-extra. The plain chiseled image failed `--selftest` (Countries.Normalize did not fold
 # diacritics because it ships without ICU and runs in invariant-globalization mode); -extra adds ICU.

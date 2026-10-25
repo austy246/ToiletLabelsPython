@@ -1,0 +1,143 @@
+name: Deploy
+
+# Every push to main: tests → image (GHCR) → deploy to the shared VPS.
+# The VPS side is the same as a local deploy (deploy/deploy.ps1): deploy/ from this commit, then
+# deploy/remote-deploy.sh (selftest, compose up --wait with automatic rollback, Caddy). deploy.ps1 stays the
+# fallback (e.g. `-Tag <sha>` for a manual rollback); do not run it while this workflow is deploying.
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['docs/**', '**/*.md', '.claude/**']
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-toiletlabels
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash   # -eo pipefail
+
+env:
+  IMAGE: ghcr.io/austy246/toiletlabels-app
+  APP_URL: https://toiletlabels.austy.cz
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      TESTCONTAINERS_RYUK_DISABLED: 'true'   # ephemeral runner; avoids pulling Ryuk from Docker Hub
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: dotnet test (Azurite via Testcontainers)
+        run: dotnet test
+
+  build:
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: src/ToiletLabels/Dockerfile
+          platforms: linux/amd64
+          push: true
+          provenance: false
+          tags: |
+            ${{ env.IMAGE }}:${{ github.sha }}
+            ${{ env.IMAGE }}:latest
+          labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: SSH key and pinned host key
+        env:
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_KNOWN_HOSTS: ${{ vars.SSH_KNOWN_HOSTS }}
+        run: |
+          : "${SSH_KEY:?}" "${SSH_HOST:?}" "${SSH_USER:?}" "${SSH_KNOWN_HOSTS:?}"
+          umask 077
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" | tr -d '\r' > ~/.ssh/id_deploy
+          ssh-keygen -y -f ~/.ssh/id_deploy > /dev/null
+          printf '%s\n' "$SSH_KNOWN_HOSTS" | tr -d '\r' > ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<EOF
+          Host vps
+            HostName $SSH_HOST
+            User $SSH_USER
+            IdentityFile ~/.ssh/id_deploy
+            IdentitiesOnly yes
+            StrictHostKeyChecking yes
+            BatchMode yes
+            ConnectTimeout 15
+            ServerAliveInterval 15
+            ServerAliveCountMax 4
+          EOF
+
+      - name: Upload deploy/ from this commit
+        run: git archive --format=tar "$GITHUB_SHA" deploy | ssh vps tar -x -C /srv/toiletlabels
+
+      - name: Sync secrets into deploy/.env (stdin only, never printed)
+        env:
+          STORAGE: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
+          MAPY: ${{ secrets.MAPY_API_KEY }}
+          ADMIN_USER: ${{ secrets.ADMIN_USERNAME }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+        run: |
+          : "${STORAGE:?}" "${MAPY:?}" "${ADMIN_USER:?}" "${ADMIN_PASSWORD:?}"
+          printf 'ConnectionStrings__Storage=%s\nMapy__ApiKey=%s\nAdmin__UserName=%s\nAdmin__Password=%s\n' \
+            "$STORAGE" "$MAPY" "$ADMIN_USER" "$ADMIN_PASSWORD" \
+            | ssh vps bash /srv/toiletlabels/deploy/update-env-secrets.sh
+
+      - name: Deploy (selftest, compose up --wait with rollback, Caddy)
+        run: ssh vps bash -s -- "$IMAGE:$GITHUB_SHA" --selftest < deploy/remote-deploy.sh
+
+      - name: Health check
+        run: |
+          for i in 1 2 3 4 5; do
+            code="$(curl -s -o /dev/null --connect-timeout 5 -m 10 -w '%{http_code}' "$APP_URL/healthz" || true)"
+            [ "$code" = 200 ] && { echo "healthz 200"; exit 0; }
+            sleep 3
+          done
+          echo "healthz failed (last status: ${code:-none})" >&2
+          exit 1
+
+      - name: Remove SSH key
+        if: always()
+        run: rm -f ~/.ssh/id_deploy

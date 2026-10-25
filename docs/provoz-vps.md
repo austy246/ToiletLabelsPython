@@ -27,8 +27,18 @@ docker stats --no-stream
 
 ## 2. Nasazení a návrat na starší verzi
 
-**Žádné CI ani GitHub Actions není. Push do `main` nenasazuje.** Nasazuje se z lokálního stroje skriptem
-`deploy/deploy.ps1` (PowerShell 7.2+, Docker s buildx):
+**Každý push do `main` nasazuje** přes GitHub Actions (`.github/workflows/deploy.yml`, pro veřejný repozitář zdarma):
+testy → build a push image `ghcr.io/austy246/toiletlabels-app:<plný sha>` → přes SSH nahrání `deploy/` z commitu,
+synchronizace tajných hodnot do `.env` (stdin) a `remote-deploy.sh --selftest` → kontrola `/healthz`. Push, který mění jen
+`docs/**` nebo `*.md`, nenasazuje; ručně jde workflow spustit přes „Run workflow“ (`workflow_dispatch`).
+
+GitHub nastavení: secrets `SSH_HOST`, `SSH_USER`, `SSH_KEY` (CI klíč, veřejná část v `~deploy/.ssh/authorized_keys`),
+`AZURE_STORAGE_CONNECTION_STRING`, `MAPY_API_KEY`, `ADMIN_USERNAME`, `ADMIN_PASSWORD` a proměnná `SSH_KNOWN_HOSTS`
+(připnutý klíč serveru). Pro tyto čtyři hodnoty aplikace jsou GitHub secrets zdrojem pravdy; prázdný secret hodnotu na
+serveru nikdy nesmaže.
+
+**Záloha a návrat na starší verzi** z lokálního stroje skriptem `deploy/deploy.ps1` (PowerShell 7.2+, Docker s buildx).
+Dělá na serveru totéž; nespouštět, když zrovna běží nasazení z GitHubu:
 
 ```powershell
 pwsh ./deploy/deploy.ps1                 # nasazení HEAD
@@ -102,7 +112,8 @@ co se smaže. Po smazání lze pustit `--check-data` jako kontrolu, že zbylá d
 | `Admin__UserName`, `Admin__Password` | tajné: admin účet zakládaný při startu |
 | `APP_IMAGE` | image, který běží (přepisuje `remote-deploy.sh`) |
 
-- **Tajné hodnoty** se na server dostávají přes `pwsh ./deploy/deploy.ps1 -UpdateSecrets`: lokální gitignorovaný
+- **Tajné hodnoty** se na server dostávají při každém nasazení z GitHub secrets (viz kap. 2), nebo ručně přes
+  `pwsh ./deploy/deploy.ps1 -UpdateSecrets`: lokální gitignorovaný
   `deploy/secrets.env` (řádky `KEY=VALUE`) se proudem pošle na stdin skriptu `deploy/update-env-secrets.sh`, nikdy v
   argumentech. Zapisují se jen povolené klíče a prázdné hodnoty se přeskočí.
 - **Čistý server**: `APP_DOMAIN=<doména> bash deploy/gen-env.sh` vytvoří `.env` (nikdy nepřepíše existující), pak
@@ -127,7 +138,7 @@ Encrypt) mířili na wildcard. Certifikát vystavuje Caddy přes HTTP-01 (port 8
 
 | Kdy | Co |
 |---|---|
-| podle potřeby | rotace klíče storage účtu: aktualizovat `ConnectionStrings__Storage` v `deploy/secrets.env`, pustit `deploy.ps1 -UpdateSecrets` a pak nasazení (restart kontejneru) |
+| podle potřeby | rotace klíče storage účtu: aktualizovat GitHub secret `AZURE_STORAGE_CONNECTION_STRING` a spustit workflow Deploy (nebo lokálně `deploy/secrets.env` + `deploy.ps1 -UpdateSecrets` a nasazení) |
 | průběžně | `docker stats --no-stream`, `df -h /`, `docker system df` na serveru (disk je sdílený s dalšími projekty); na serveru nikdy `docker system prune` ani `docker image prune -af` |
 | po nasazení | smazat staré `deploy/.env.bak-*` |
 | při potřebě | jiný přístup přes SSH: veřejnou část klíče přidat do `~deploy/.ssh/authorized_keys`, odvolání = smazat ten řádek |
@@ -140,3 +151,4 @@ Encrypt) mířili na wildcard. Certifikát vystavuje Caddy přes HTTP-01 (port 8
   `docs/migrace-vps.md`.
 - Aplikace byla přepsána do ASP.NET Core 10 a produkce na ni byla přepnuta; **24. 10. 2026** byl odstraněn Django kód,
   GitHub workflow, SQLite volume a Python image na serveru.
+- **25. 10. 2026** nasazení vráceno do GitHub Actions (každý push do `main`); `deploy.ps1` zůstává jako záloha.

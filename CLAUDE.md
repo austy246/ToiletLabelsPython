@@ -26,7 +26,7 @@ No linting or separate build steps are configured.
 
 ## Development Workflow
 
-**Work directly on `main` — do NOT create feature branches.** Commit changes straight to `main` and push. (This overrides any default "branch first" behavior.) There is no CI: pushing to `main` does NOT deploy.
+**Work directly on `main` — do NOT create feature branches.** Commit changes straight to `main` and push. (This overrides any default "branch first" behavior.) Pushing to `main` deploys to production (GitHub Actions, see Deployment); pushes that touch only `docs/**` or `*.md` do not.
 
 ## Architecture
 
@@ -89,7 +89,9 @@ ASP.NET Core configuration (double underscore = nested section). Locally via com
 
 Production runs on the shared OVH VPS; operations (server, secrets, DNS, deleting a gallery entry) are in [docs/provoz-vps.md](docs/provoz-vps.md). The former Azure Web App was deleted on 14 Oct 2026. Only the storage account `toiletlabelsstorage` (resource group `ToiletLabels`) remains and holds all data, **so never delete that resource group or storage account**.
 
-**There is no CI and no GitHub Actions: deploy from the local machine** with [deploy/deploy.ps1](deploy/deploy.ps1) (PowerShell 7.2+, Docker with buildx):
+**Every push to `main` deploys** via [.github/workflows/deploy.yml](.github/workflows/deploy.yml) (free for this public repo): `dotnet test` → build + push `ghcr.io/austy246/toiletlabels-app:<full sha>` (+ `latest`, gha cache) → over SSH: upload `deploy/` from the commit, sync secrets into the server `.env` via stdin (`update-env-secrets.sh`), run `remote-deploy.sh <image> --selftest`, check `/healthz`. Docs/markdown-only pushes are skipped; `workflow_dispatch` re-runs it manually. GitHub configuration: secrets `SSH_HOST`, `SSH_USER`, `SSH_KEY` (CI key, public part in `~deploy/.ssh/authorized_keys`), `AZURE_STORAGE_CONNECTION_STRING`, `MAPY_API_KEY`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`; variable `SSH_KNOWN_HOSTS` (pinned host key). GitHub secrets are the source of truth for those four app values (empty secrets never blank a server value).
+
+**Fallback / rollback from the local machine** with [deploy/deploy.ps1](deploy/deploy.ps1) (PowerShell 7.2+, Docker with buildx) — runs the same server-side steps; do not run it while a GitHub deploy is in progress:
 
 ```powershell
 pwsh ./deploy/deploy.ps1                 # tests, buildx linux/amd64, push :<full sha>, upload deploy/, remote-deploy.sh, /healthz check

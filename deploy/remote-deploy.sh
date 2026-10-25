@@ -15,6 +15,15 @@
 # arrives on stdin, and nothing below may read stdin: docker commands get </dev/null).
 set -euo pipefail
 
+# Rewrites APP_IMAGE in .env (cwd) without sed, so the value can never be read as a pattern.
+set_app_image() {
+  local tmp
+  tmp="$(mktemp .env.XXXXXX)"
+  { grep -v '^APP_IMAGE=' .env || true; } > "$tmp"
+  printf 'APP_IMAGE=%s\n' "$1" >> "$tmp"
+  mv "$tmp" .env
+}
+
 main() {
   local APP_DIR="${APP_DIR:-/srv/toiletlabels}"
   local IMAGE_REPO="ghcr.io/austy246/toiletlabels-app"
@@ -67,26 +76,29 @@ main() {
   fi
 
   # 5. Deploy. APP_IMAGE is rewritten without sed so the value can never be interpreted as a pattern.
-  local previous current_ref
+  # If the new container does not become healthy, the image that ran before is started again.
+  local current_ref previous
   current_ref="$(grep -m1 '^APP_IMAGE=' .env | cut -d= -f2- || true)"
-  if [ -n "$current_ref" ] && [ "$current_ref" != "$image_ref" ]; then
-    printf '%s\n' "$current_ref" > .previous-image
-  fi
   previous="$(cat .previous-image 2>/dev/null || true)"
+  [ -n "$current_ref" ] && [ "$current_ref" != "$image_ref" ] && previous="$current_ref"
   umask 077
-  local tmp
-  tmp="$(mktemp .env.XXXXXX)"
-  { grep -v '^APP_IMAGE=' .env || true; } > "$tmp"
-  printf 'APP_IMAGE=%s\n' "$image_ref" >> "$tmp"
-  mv "$tmp" .env
+  set_app_image "$image_ref"
 
   echo "==> docker compose up"
   docker compose pull app </dev/null
-  if ! docker compose up -d --wait --remove-orphans </dev/null; then
-    echo "ERROR: the app did not become healthy. Previous image: ${previous:-unknown}" >&2
+  if ! docker compose up -d --wait --wait-timeout 180 --remove-orphans </dev/null; then
+    echo "ERROR: the app did not become healthy." >&2
     docker compose ps </dev/null >&2 || true
+    if [ -n "$current_ref" ] && [ "$current_ref" != "$image_ref" ]; then
+      echo "==> rolling back to $current_ref" >&2
+      set_app_image "$current_ref"
+      docker compose up -d --wait --wait-timeout 180 --remove-orphans </dev/null \
+        || echo "ERROR: rollback did not become healthy either" >&2
+    fi
     exit 1
   fi
+  # Remember the last good image only once the new one is healthy (quick manual rollback target).
+  if [ -n "$previous" ] && [ "$previous" != "$image_ref" ]; then printf '%s\n' "$previous" > .previous-image; fi
 
   # 6. Shared Caddy (the one of manarozeniny imports $SITES/*.caddy): drop our block in, validate the whole
   # config, reload only if valid. An invalid block is rolled back, so it can never break the other
@@ -102,21 +114,32 @@ main() {
   local caddy
   caddy="$(docker ps -q --filter label=com.docker.compose.project=deploy --filter label=com.docker.compose.service=caddy | head -1)"
   [ -n "$caddy" ] || { echo "ERROR: Caddy container (project deploy) not found" >&2; exit 1; }
-  if [ -f "$SITES/toiletlabels.caddy" ]; then cp -p "$SITES/toiletlabels.caddy" "$SITES/toiletlabels.caddy.bak"; fi
-  sed "s#__APP_DOMAIN__#${domain}#g" "$APP_DIR/deploy/toiletlabels.caddy" > "$SITES/toiletlabels.caddy"
-  chmod 644 "$SITES/toiletlabels.caddy"
-  if docker exec "$caddy" caddy validate --config /etc/caddy/Caddyfile >/dev/null 2>&1 </dev/null; then
-    docker exec "$caddy" caddy reload --config /etc/caddy/Caddyfile </dev/null
-    rm -f "$SITES/toiletlabels.caddy.bak"
+  local rendered
+  rendered="$(mktemp)"
+  sed "s#__APP_DOMAIN__#${domain}#g" "$APP_DIR/deploy/toiletlabels.caddy" > "$rendered"
+  if [ -f "$SITES/toiletlabels.caddy" ] && cmp -s "$rendered" "$SITES/toiletlabels.caddy"; then
+    # Unchanged block: do not reload the Caddy shared by the other projects on every deploy.
+    rm -f "$rendered"
+    echo "caddy block unchanged, no reload"
   else
-    echo "ERROR: invalid Caddy configuration, restoring the previous file" >&2
-    docker exec "$caddy" caddy validate --config /etc/caddy/Caddyfile </dev/null 2>&1 | tail -5 || true
-    if [ -f "$SITES/toiletlabels.caddy.bak" ]; then
-      mv "$SITES/toiletlabels.caddy.bak" "$SITES/toiletlabels.caddy"
+    if [ -f "$SITES/toiletlabels.caddy" ]; then cp -p "$SITES/toiletlabels.caddy" "$SITES/toiletlabels.caddy.bak"; fi
+    cat "$rendered" > "$SITES/toiletlabels.caddy"
+    rm -f "$rendered"
+    chmod 644 "$SITES/toiletlabels.caddy"
+    if docker exec "$caddy" caddy validate --config /etc/caddy/Caddyfile >/dev/null 2>&1 </dev/null \
+       && docker exec "$caddy" caddy reload --config /etc/caddy/Caddyfile </dev/null; then
+      rm -f "$SITES/toiletlabels.caddy.bak"
     else
-      rm -f "$SITES/toiletlabels.caddy"
+      echo "ERROR: invalid Caddy configuration, restoring the previous file" >&2
+      docker exec "$caddy" caddy validate --config /etc/caddy/Caddyfile </dev/null 2>&1 | tail -5 || true
+      if [ -f "$SITES/toiletlabels.caddy.bak" ]; then
+        mv "$SITES/toiletlabels.caddy.bak" "$SITES/toiletlabels.caddy"
+      else
+        rm -f "$SITES/toiletlabels.caddy"
+      fi
+      docker exec "$caddy" caddy reload --config /etc/caddy/Caddyfile </dev/null >/dev/null 2>&1 || true
+      exit 1
     fi
-    exit 1
   fi
 
   # 7. Remove old tags of OUR image only; keep the current and the previous one for a quick rollback.
